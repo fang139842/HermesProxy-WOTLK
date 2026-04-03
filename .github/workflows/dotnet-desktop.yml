@@ -44,9 +44,50 @@ jobs:
         Copy-Item -Path "HermesProxy/bin/${{ matrix.configuration }}/*/publish/*" -Destination "publish" -Recurse -Force
       shell: pwsh
 
+    - name: Zip artifact
+      run: Compress-Archive -Path publish/* -DestinationPath HermesProxy-windows-${{ matrix.configuration }}.zip
+      shell: pwsh
+
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
         name: HermesProxy-windows-${{ matrix.configuration }}-${{ github.sha }}
         path: publish
         if-no-files-found: error
+
+    - name: Upload zip for release
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-zip-${{ matrix.configuration }}
+        path: HermesProxy-windows-${{ matrix.configuration }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download Release artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: release-zip-*
+        merge-multiple: true
+
+    - name: Generate tag
+      id: tag
+      run: echo "tag=build-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        name: Build ${{ steps.tag.outputs.tag }}
+        body: |
+          Automated build from commit ${{ github.sha }}
+        files: |
+          HermesProxy-windows-Debug.zip
+          HermesProxy-windows-Release.zip
+        draft: false
+        prerelease: false
