@@ -187,7 +187,10 @@ public class ObjectUpdateBuilder
 			this.WriteValuesCreate(valuesBuffer);
 		}
 		byte[] valuesData = valuesBuffer.GetData();
-		Log.Print(LogType.Debug, $"[ValuesBlock] type={this.m_objectType} totalValuesSize={valuesData.Length} fieldFlags=0x{((valuesData.Length >= 1) ? valuesData[0] : 0):X2}", "WriteValuesModern", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Objects\\Version\\V3_4_3_54261\\ObjectUpdateBuilder.cs");
+		if (this.m_updateData.Type == UpdateTypeModern.Values && this.m_objectTypeMask.HasAnyFlag(ObjectTypeMask.Unit))
+		{
+			Log.Print(LogType.Debug, $"[ValuesUpdate] guid={this.m_updateData.Guid} type={this.m_objectType} size={valuesData.Length} hex={BitConverter.ToString(valuesData, 0, System.Math.Min(64, valuesData.Length))}", "WriteValuesModern", "");
+		}
 		packet.WriteUInt32((uint)valuesData.Length);
 		packet.WriteBytes(valuesData);
 	}
