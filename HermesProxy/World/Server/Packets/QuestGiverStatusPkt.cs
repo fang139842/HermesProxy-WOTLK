@@ -16,6 +16,6 @@ public class QuestGiverStatusPkt : ServerPacket
 	public override void Write()
 	{
 		base._worldPacket.WritePackedGuid128(this.QuestGiver.Guid);
-		base._worldPacket.WriteUInt32((uint)this.QuestGiver.Status);
+		base._worldPacket.WriteUInt64((ulong)this.QuestGiver.Status);
 	}
 }

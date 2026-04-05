@@ -3,7 +3,7 @@ using System;
 namespace HermesProxy.World.Enums;
 
 [Flags]
-public enum QuestGiverStatusModern : uint
+public enum QuestGiverStatusModern : ulong
 {
 	None = 0u,
 	Unavailable = 2u,

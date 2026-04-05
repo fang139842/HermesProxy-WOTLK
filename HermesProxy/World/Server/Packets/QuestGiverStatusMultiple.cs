@@ -19,7 +19,7 @@ public class QuestGiverStatusMultiple : ServerPacket
 		foreach (QuestGiverInfo questGiver in this.QuestGivers)
 		{
 			base._worldPacket.WritePackedGuid128(questGiver.Guid);
-			base._worldPacket.WriteUInt32((uint)questGiver.Status);
+			base._worldPacket.WriteUInt64((ulong)questGiver.Status);
 		}
 	}
 }
