@@ -77,6 +77,11 @@ public class GameSessionData
 
 	public WowGuid128 CurrentPlayerGuid;
 
+	// Death/revive: track ghost state and cache MoveInfo for DestroyObject+CreateObject2 on revive
+	public bool IsPlayerGhost;
+	public bool NeedPlayerRecreate;
+	public MovementInfo LastSelfPlayerMoveInfo;
+
 	// Cached quest log: QuestID per slot (0-24), updated on create and values updates
 	public int[] QuestLogQuestIDs = new int[25];
 

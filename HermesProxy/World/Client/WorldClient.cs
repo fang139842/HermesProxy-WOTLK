@@ -9501,6 +9501,67 @@ public class WorldClient
 					// No stripping — packet splitting + ThreadStatic fix prevent corruption.
 					// Let ALL data through including ObjectData DynamicFlags.
 				}
+				// DestroyObject + CreateObject2 on revive: ghost→alive transition
+				if (guid3 == this.GetSession().GameState.CurrentPlayerGuid && this.GetSession().GameState.NeedPlayerRecreate)
+				{
+					this.GetSession().GameState.NeedPlayerRecreate = false;
+					Log.Print(LogType.Debug, "[DeathRevive] Performing DestroyObject + CreateObject2 for revive", "HandleUpdateObject", "");
+
+					// 1. Send DestroyObject to remove stale ghost-flagged player from client
+					UpdateObject destroyPacket = new UpdateObject(this.GetSession().GameState);
+					destroyPacket.DestroyedGuids.Add(guid3);
+					this.SendPacketToClient(destroyPacket);
+
+					// 2. Clear modern cache so CreateObject2 starts fresh
+					this.GetSession().GameState.ObjectCacheMutex.WaitOne();
+					this.GetSession().GameState.ObjectCacheModern.Remove(guid3);
+					this.GetSession().GameState.ObjectCacheMutex.ReleaseMutex();
+
+					// 3. Build full CreateObject2 from cached legacy fields
+					Dictionary<int, UpdateField> cachedFields = this.GetSession().GameState.GetCachedObjectFieldsLegacy(guid3);
+					if (cachedFields != null && this.GetSession().GameState.LastSelfPlayerMoveInfo != null)
+					{
+						ObjectUpdate createUpdate = new ObjectUpdate(guid3, UpdateTypeModern.CreateObject2, this.GetSession());
+						createUpdate.CreateData.ObjectType = ObjectType.ActivePlayer;
+						createUpdate.CreateData.ThisIsYou = true;
+						createUpdate.CreateData.MoveInfo = this.GetSession().GameState.LastSelfPlayerMoveInfo.CopyFromMe();
+
+						// Build full update mask from all cached fields
+						int maxKey = 0;
+						foreach (int key in cachedFields.Keys)
+							if (key > maxKey) maxKey = key;
+						BitArray fullMask = new BitArray(maxKey + 1, false);
+						foreach (int key in cachedFields.Keys)
+							fullMask.Set(key, true);
+
+						// Populate all field values via StoreObjectUpdate
+						AuraUpdate createAuraUpdate = new AuraUpdate(guid3, all: true);
+						this.StoreObjectUpdate(guid3, ObjectType.ActivePlayer, fullMask, cachedFields, createAuraUpdate, null, true, createUpdate, fullMask);
+
+						// Also apply completed quests
+						this.GetSession().GameState.CurrentPlayerStorage.CompletedQuests.WriteAllCompletedIntoArray(createUpdate.ActivePlayerData.QuestCompleted);
+
+						updateObject.ObjectUpdates.Add(createUpdate);
+						if (createAuraUpdate.Auras.Count != 0)
+						{
+							auraUpdates.Add(createAuraUpdate);
+						}
+						Log.Print(LogType.Debug, $"[DeathRevive] Created full CreateObject2 with {cachedFields.Count} fields, pos={createUpdate.CreateData.MoveInfo.Position}", "HandleUpdateObject", "");
+					}
+					else
+					{
+						Log.Print(LogType.Error, "[DeathRevive] Cannot recreate player — missing cached fields or MoveInfo, sending Values update instead", "HandleUpdateObject", "");
+						// Fall through to normal Values update as fallback
+						goto normalValuesUpdate;
+					}
+					// Send any aura updates and skip normal Values path
+					if (auraUpdate2.Auras.Count != 0)
+					{
+						auraUpdates.Add(auraUpdate2);
+					}
+					break;
+				}
+				normalValuesUpdate:
 				// Check if the update has any actual data to send.
 				// Empty Values updates (changedMask=0) crash the 3.4.3 client.
 				bool hasAnythingToSend = false;
@@ -9689,6 +9750,12 @@ public class WorldClient
 				ObjectUpdate updateData = new ObjectUpdate(guid, createType, this.GetSession());
 				AuraUpdate auraUpdate = new AuraUpdate(guid, all: true);
 				this.ReadCreateObjectBlock(packet, guid, updateData, auraUpdate, i);
+				// Cache MoveInfo for self player — needed for DestroyObject+CreateObject2 on revive
+				if (guid == this.GetSession().GameState.CurrentPlayerGuid && updateData.CreateData?.MoveInfo != null)
+				{
+					this.GetSession().GameState.LastSelfPlayerMoveInfo = updateData.CreateData.MoveInfo.CopyFromMe();
+					Log.Print(LogType.Debug, $"[DeathRevive] Cached self player MoveInfo pos={updateData.CreateData.MoveInfo.Position}", "HandleUpdateObject", "");
+				}
 				if (guid.IsItem() && updateData.ObjectData.EntryID.HasValue && !GameData.ItemTemplates.ContainsKey((uint)updateData.ObjectData.EntryID.Value))
 				{
 					uint entryId2 = (uint)updateData.ObjectData.EntryID.Value;
@@ -11589,10 +11656,16 @@ public class WorldClient
 				if (updateData.Guid == this.GetSession().GameState.CurrentPlayerGuid)
 				{
 					this.GetSession().GameState.CurrentPlayerStorage.Settings.PatchFlags(ref flags2);
+					// Detect ghost→alive transition for DestroyObject+CreateObject2 revive fix
+					bool isGhostNow = legacyFlags.HasAnyFlag(PlayerFlagsLegacy.Ghost);
+					if (this.GetSession().GameState.IsPlayerGhost && !isGhostNow)
+					{
+						Log.Print(LogType.Debug, "[DeathRevive] Ghost→Alive transition detected, will recreate player object", "StoreObjectUpdate", "");
+						this.GetSession().GameState.NeedPlayerRecreate = true;
+					}
+					this.GetSession().GameState.IsPlayerGhost = isGhostNow;
 				}
-				// Strip Ghost flag (0x10) — grey overlay can't be cleared via Values update
-				// Ghost wisp model still works via aura 8326 and clears on revive
-				flags2 &= ~PlayerFlags.Ghost;
+				// Ghost flag now sent through — DestroyObject+CreateObject2 on revive clears the grey overlay
 				updateData.PlayerData.PlayerFlags = (uint)flags2;
 				if (!updateData.PlayerData.PlayerFlagsEx.HasValue)
 				{
