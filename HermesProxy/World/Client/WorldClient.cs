@@ -2223,8 +2223,23 @@ public class WorldClient
 				blob.PlayerConditionID = 0;
 				blob.NavigationPlayerConditionID = 0;
 				blob.SpawnTrackingID = 0;
-				blob.QuestObjectiveID = 0;
-				blob.QuestObjectID = 0;
+				// Look up the QuestObjectiveID from our cached objectives
+				// The modern client needs this to link POI blobs to specific objectives
+				QuestTemplate poiQuest = GameData.GetQuestTemplate((uint)questData.QuestID);
+				if (poiQuest != null)
+				{
+					QuestObjective matchedObj = poiQuest.Objectives.Find(o => o.StorageIndex == blob.ObjectiveIndex);
+					if (matchedObj != null)
+					{
+						blob.QuestObjectiveID = (int)matchedObj.Id;
+						blob.QuestObjectID = matchedObj.ObjectID;
+					}
+				}
+				else
+				{
+					blob.QuestObjectiveID = 0;
+					blob.QuestObjectID = 0;
+				}
 				packet.ReadUInt32(); // Unk3
 				packet.ReadUInt32(); // Unk4
 				uint pointCount = packet.ReadUInt32();
@@ -10667,10 +10682,36 @@ public class WorldClient
 			{
 				questLog = new QuestLog();
 			}
-			questLog.ObjectiveProgress[0] = (byte)(updates[index + progressOffset].UInt32Value & 0xFF);
-			questLog.ObjectiveProgress[1] = (byte)((updates[index + progressOffset].UInt32Value >> 8) & 0xFF);
-			questLog.ObjectiveProgress[2] = (byte)((updates[index + progressOffset].UInt32Value >> 16) & 0xFF);
-			questLog.ObjectiveProgress[3] = (byte)((updates[index + progressOffset].UInt32Value >> 24) & 0xFF);
+			// In 3.3.5a, objective counts are 16-bit each, stored as uint64 across fields +2 and +3
+			// Field +2: objective 0 (low 16 bits) | objective 1 (high 16 bits)
+			// Field +3: objective 2 (low 16 bits) | objective 3 (high 16 bits)
+			uint progressField0 = updates[index + progressOffset].UInt32Value;
+			questLog.ObjectiveProgress[0] = (short)(progressField0 & 0xFFFF);
+			questLog.ObjectiveProgress[1] = (short)((progressField0 >> 16) & 0xFFFF);
+			int progressOffset2 = progressOffset + 1;
+			if (updates.ContainsKey(index + progressOffset2))
+			{
+				uint progressField1 = updates[index + progressOffset2].UInt32Value;
+				questLog.ObjectiveProgress[2] = (short)(progressField1 & 0xFFFF);
+				questLog.ObjectiveProgress[3] = (short)((progressField1 >> 16) & 0xFFFF);
+			}
+		}
+		// Also handle when only field +3 updates (objectives 2-3 change without 0-1 changing)
+		if (progressOffset != -1)
+		{
+			int progressOffset2 = progressOffset + 1;
+			bool field3Updated = (updateMaskArray != null && updateMaskArray[index + progressOffset2]) || (updateMaskArray == null && updates.ContainsKey(index + progressOffset2));
+			bool field2Updated = (updateMaskArray != null && updateMaskArray[index + progressOffset]) || (updateMaskArray == null && updates.ContainsKey(index + progressOffset));
+			if (field3Updated && !field2Updated)
+			{
+				if (questLog == null)
+				{
+					questLog = new QuestLog();
+				}
+				uint progressField1 = updates[index + progressOffset2].UInt32Value;
+				questLog.ObjectiveProgress[2] = (short)(progressField1 & 0xFFFF);
+				questLog.ObjectiveProgress[3] = (short)((progressField1 >> 16) & 0xFFFF);
+			}
 		}
 		if ((updateMaskArray != null && updateMaskArray[index + timerOffset]) || (updateMaskArray == null && updates.ContainsKey(index + timerOffset)))
 		{
@@ -12495,8 +12536,24 @@ public class WorldClient
 			{
 				updateData.GameObjectData.State = (sbyte)updates[GAMEOBJECT_STATE].Int32Value;
 			}
+			// Handle GO dynamic flags - try GAMEOBJECT_DYN_FLAGS first (newer expansions),
+			// then fall back to GAMEOBJECT_DYNAMIC (3.3.5a packs dyn flags in low 16 bits)
 			int GAMEOBJECT_DYN_FLAGS = LegacyVersion.GetUpdateField(GameObjectField.GAMEOBJECT_DYN_FLAGS);
+			int GAMEOBJECT_DYNAMIC = LegacyVersion.GetUpdateField(GameObjectField.GAMEOBJECT_DYNAMIC);
+			uint legacyDynFlags = 0;
+			bool hasDynFlags = false;
 			if (GAMEOBJECT_DYN_FLAGS >= 0 && updateMaskArray[GAMEOBJECT_DYN_FLAGS])
+			{
+				legacyDynFlags = updates[GAMEOBJECT_DYN_FLAGS].UInt32Value;
+				hasDynFlags = true;
+			}
+			else if (GAMEOBJECT_DYNAMIC >= 0 && updateMaskArray[GAMEOBJECT_DYNAMIC])
+			{
+				// In 3.3.5a, GAMEOBJECT_DYNAMIC low 16 bits = dynamic flags, high 16 bits = path progress
+				legacyDynFlags = updates[GAMEOBJECT_DYNAMIC].UInt32Value & 0xFFFF;
+				hasDynFlags = true;
+			}
+			if (hasDynFlags)
 			{
 				uint oldValue2 = 0u;
 				if (updateData.ObjectData.DynamicFlags.HasValue)
@@ -12507,7 +12564,7 @@ public class WorldClient
 				{
 					oldValue2 = 4294901760u;
 				}
-				GameObjectDynamicFlagsLegacy flags4 = (GameObjectDynamicFlagsLegacy)updates[GAMEOBJECT_DYN_FLAGS].UInt32Value;
+				GameObjectDynamicFlagsLegacy flags4 = (GameObjectDynamicFlagsLegacy)legacyDynFlags;
 				updateData.ObjectData.DynamicFlags = oldValue2 | (uint)flags4.CastFlags<GameObjectDynamicFlagsModern>();
 			}
 			int GAMEOBJECT_FACTION = LegacyVersion.GetUpdateField(GameObjectField.GAMEOBJECT_FACTION);
