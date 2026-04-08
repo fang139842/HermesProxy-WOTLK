@@ -8116,6 +8116,7 @@ public class WorldClient
 			}
 		}
 		uint reason = packet.ReadUInt8();
+		Log.Print(LogType.Debug, $"[CastFailed] SpellID={spellId} Reason={reason}", "HandleCastFailed", "");
 		if (LegacyVersion.InVersion(ClientVersionBuild.V2_0_1_6180, ClientVersionBuild.V3_0_2_9056))
 		{
 			packet.ReadUInt8();

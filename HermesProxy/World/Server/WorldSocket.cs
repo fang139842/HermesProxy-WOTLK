@@ -1228,9 +1228,16 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 	private void HandleGameObjUse(GameObjReportUse use)
 	{
 		this.GetSession().GameState.CurrentInteractedWithGO = use.Guid;
-		WorldPacket packet = new WorldPacket(Opcode.CMSG_GAME_OBJ_REPORT_USE);
-		packet.WriteGuid(use.Guid.To64());
-		this.SendPacketToServer(packet);
+		WowGuid64 guid64 = use.Guid.To64();
+		Log.Print(LogType.Debug, $"[GameObjReportUse] Modern={use.Guid} Legacy={guid64} Entry={guid64.GetEntry()} Low={guid64.GetLowValue():X16}", "HandleGameObjReportUse", "");
+		// Send GAME_OBJ_USE to trigger the interaction on the server
+		WorldPacket usePacket = new WorldPacket(Opcode.CMSG_GAME_OBJ_USE);
+		usePacket.WriteGuid(guid64);
+		this.SendPacketToServer(usePacket);
+		// Also send GAME_OBJ_REPORT_USE (for achievement/stats tracking)
+		WorldPacket reportPacket = new WorldPacket(Opcode.CMSG_GAME_OBJ_REPORT_USE);
+		reportPacket.WriteGuid(guid64);
+		this.SendPacketToServer(reportPacket);
 	}
 
 	[PacketHandler(Opcode.CMSG_PARTY_INVITE)]
@@ -4102,7 +4109,15 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 			}
 			this.GetSession().GameState.CurrentClientNormalCast = castRequest2;
 		}
+		// If casting Opening spell (6478) with no target, inject the game object
+		// from CMSG_GAME_OBJ_REPORT_USE — modern client sends the spell without a target
+		if (cast.Cast.SpellID == 6478 && (cast.Cast.Target.Unit == null || cast.Cast.Target.Unit.IsEmpty()) && this.GetSession().GameState.CurrentInteractedWithGO != null && !this.GetSession().GameState.CurrentInteractedWithGO.IsEmpty())
+		{
+			cast.Cast.Target.Unit = this.GetSession().GameState.CurrentInteractedWithGO;
+			cast.Cast.Target.Flags |= SpellCastTargetFlags.GameObject;
+		}
 		SpellCastTargetFlags targetFlags = this.ConvertSpellTargetFlags(cast.Cast.Target);
+		Log.Print(LogType.Debug, $"[CastSpell] SpellID={cast.Cast.SpellID} TargetFlags=0x{(uint)targetFlags:X} ModernFlags=0x{(uint)cast.Cast.Target.Flags:X} Unit={cast.Cast.Target.Unit} Item={cast.Cast.Target.Item}", "HandleCastSpell", "");
 		WorldPacket packet = new WorldPacket(Opcode.CMSG_CAST_SPELL);
 		if (LegacyVersion.RemovedInVersion(ClientVersionBuild.V2_0_1_6180))
 		{
