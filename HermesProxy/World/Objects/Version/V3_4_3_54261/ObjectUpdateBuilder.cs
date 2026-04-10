@@ -329,24 +329,160 @@ public class ObjectUpdateBuilder
 			return false;
 		ActivePlayerData a = this.m_updateData.ActivePlayerData;
 		if (a == null) return false;
-		if (a.Coinage.HasValue || a.XP.HasValue || a.NextLevelXP.HasValue) return true;
+
+		// Block 0 scalars (bits 26-37)
+		if (a.FarsightObject != null) return true;
+		if (a.Coinage.HasValue || a.XP.HasValue || a.NextLevelXP.HasValue || a.TrialXP.HasValue) return true;
+		if (a.CharacterPoints.HasValue || a.MaxTalentTiers.HasValue) return true;
+		if (a.TrackCreatureMask.HasValue) return true;
+		if (a.MainhandExpertise.HasValue || a.OffhandExpertise.HasValue) return true;
+
+		// Block 38 scalars (bits 39-69)
+		if (a.RangedExpertise.HasValue || a.CombatRatingExpertise.HasValue) return true;
+		if (a.BlockPercentage.HasValue || a.DodgePercentage.HasValue || a.ParryPercentage.HasValue) return true;
+		if (a.CritPercentage.HasValue || a.RangedCritPercentage.HasValue || a.OffhandCritPercentage.HasValue) return true;
+		if (a.ShieldBlock.HasValue || a.Mastery.HasValue) return true;
+		if (a.Speed.HasValue || a.Avoidance.HasValue || a.Sturdiness.HasValue) return true;
+		if (a.Versatility.HasValue || a.VersatilityBonus.HasValue) return true;
+		if (a.PvpPowerDamage.HasValue || a.PvpPowerHealing.HasValue) return true;
+		if (a.ModHealingDonePos.HasValue || a.ModHealingPercent.HasValue) return true;
+		if (a.ModHealingDonePercent.HasValue || a.ModPeriodicHealingDonePercent.HasValue) return true;
+		if (a.ModSpellPowerPercent.HasValue || a.ModResiliencePercent.HasValue) return true;
+		if (a.OverrideSpellPowerByAPPercent.HasValue || a.OverrideAPBySpellPowerPercent.HasValue) return true;
+		if (a.ModTargetResistance.HasValue || a.ModTargetPhysicalResistance.HasValue) return true;
 		if (a.LocalFlags.HasValue) return true;
-		// Check if any InvSlots changed
+
+		// Block 70 scalars (bits 71-101)
+		if (a.GrantableLevels.HasValue || a.MultiActionBars.HasValue) return true;
+		if (a.LifetimeMaxRank.HasValue || a.NumRespecs.HasValue) return true;
+		if (a.AmmoID.HasValue || a.PvpMedals.HasValue) return true;
+		if (a.TodayHonorableKills.HasValue || a.TodayDishonorableKills.HasValue) return true;
+		if (a.YesterdayHonorableKills.HasValue || a.YesterdayDishonorableKills.HasValue) return true;
+		if (a.LastWeekHonorableKills.HasValue || a.LastWeekDishonorableKills.HasValue) return true;
+		if (a.ThisWeekHonorableKills.HasValue || a.ThisWeekDishonorableKills.HasValue) return true;
+		if (a.ThisWeekContribution.HasValue || a.LifetimeHonorableKills.HasValue || a.LifetimeDishonorableKills.HasValue) return true;
+		if (a.YesterdayContribution.HasValue || a.LastWeekContribution.HasValue || a.LastWeekRank.HasValue) return true;
+		if (a.WatchedFactionIndex.HasValue || a.MaxLevel.HasValue) return true;
+		if (a.ScalingPlayerLevelDelta.HasValue || a.MaxCreatureScalingLevel.HasValue) return true;
+		if (a.PetSpellPower.HasValue || a.UiHitModifier.HasValue || a.UiSpellHitModifier.HasValue) return true;
+		if (a.HomeRealmTimeOffset.HasValue || a.ModPetHaste.HasValue || a.LocalRegenFlags.HasValue) return true;
+
+		// Block 102 scalars (bits 103-123)
+		if (a.AuraVision.HasValue || a.NumBackpackSlots.HasValue) return true;
+		if (a.OverrideSpellsID.HasValue || a.LfgBonusFactionID.HasValue || a.LootSpecID.HasValue) return true;
+		if (a.OverrideZonePVPType.HasValue) return true;
+		if (a.Honor.HasValue || a.HonorNextLevel.HasValue) return true;
+		if (a.PvPTierMaxFromWins.HasValue || a.PvPLastWeeksTierMaxFromWins.HasValue) return true;
+		if (a.PvPRankProgress.HasValue) return true;
+
+		// Skill (bit 32) — nested SkillInfo struct
+		if (a.Skill != null && HasAnySkillChanged(a.Skill)) return true;
+
+		// KnownTitles (dynamic field, bit 3)
+		if (a.KnownTitles != null)
+			for (int i = 0; i < a.KnownTitles.Length; i++)
+				if (a.KnownTitles[i].HasValue) return true;
+
+		// InvSlots (bits 124-265)
 		for (int i = 0; i < 141; i++)
-		{
-			WowGuid128 slot = GetModernInvSlot(a, i);
-			if (slot != null) return true;
-		}
+			if (GetModernInvSlot(a, i) != null) return true;
+
+		// TrackResourceMask (bits 266-268)
+		if (a.TrackResourceMask != null)
+			for (int i = 0; i < a.TrackResourceMask.Length; i++)
+				if (a.TrackResourceMask[i].HasValue) return true;
+
+		// SpellCritPercentage / ModDamageDone arrays (bits 269-297)
+		if (a.SpellCritPercentage != null)
+			for (int i = 0; i < 7; i++)
+				if (a.SpellCritPercentage[i].HasValue) return true;
+		if (a.ModDamageDonePos != null)
+			for (int i = 0; i < 7; i++)
+				if (a.ModDamageDonePos[i].HasValue) return true;
+		if (a.ModDamageDoneNeg != null)
+			for (int i = 0; i < 7; i++)
+				if (a.ModDamageDoneNeg[i].HasValue) return true;
+		if (a.ModDamageDonePercent != null)
+			for (int i = 0; i < 7; i++)
+				if (a.ModDamageDonePercent[i].HasValue) return true;
+
+		// ExploredZones (bits 298-538)
+		if (a.ExploredZones != null)
+			for (int i = 0; i < 240; i++)
+				if (a.ExploredZones[i].HasValue) return true;
+
+		// RestInfo (bits 539-541)
+		if (a.RestInfo != null)
+			for (int i = 0; i < 2; i++)
+				if (a.RestInfo[i] != null && (a.RestInfo[i].Threshold.HasValue || a.RestInfo[i].StateID.HasValue)) return true;
+
+		// WeaponDmgMultipliers / WeaponAtkSpeedMultipliers (bits 542-548)
+		if (a.WeaponDmgMultipliers != null)
+			for (int i = 0; i < 3; i++)
+				if (a.WeaponDmgMultipliers[i].HasValue) return true;
+		if (a.WeaponAtkSpeedMultipliers != null)
+			for (int i = 0; i < 3; i++)
+				if (a.WeaponAtkSpeedMultipliers[i].HasValue) return true;
+
+		// Buyback (bits 549-573)
+		if (a.BuybackPrice != null)
+			for (int i = 0; i < 12; i++)
+				if (a.BuybackPrice[i].HasValue) return true;
+		if (a.BuybackTimestamp != null)
+			for (int i = 0; i < 12; i++)
+				if (a.BuybackTimestamp[i].HasValue) return true;
+
+		// CombatRatings (bits 574-606)
+		if (a.CombatRatings != null)
+			for (int i = 0; i < 32; i++)
+				if (a.CombatRatings[i].HasValue) return true;
+
+		// NoReagentCostMask (bits 615-619)
+		if (a.NoReagentCostMask != null)
+			for (int i = 0; i < 4; i++)
+				if (a.NoReagentCostMask[i].HasValue) return true;
+
+		// ProfessionSkillLine (bits 620-622)
+		if (a.ProfessionSkillLine != null)
+			for (int i = 0; i < 2; i++)
+				if (a.ProfessionSkillLine[i].HasValue) return true;
+
+		// BagSlotFlags (bits 623-627)
+		if (a.BagSlotFlags != null)
+			for (int i = 0; i < 4; i++)
+				if (a.BagSlotFlags[i].HasValue) return true;
+
+		// BankBagSlotFlags (bits 628-635)
+		if (a.BankBagSlotFlags != null)
+			for (int i = 0; i < 7; i++)
+				if (a.BankBagSlotFlags[i].HasValue) return true;
+
+		// QuestCompleted (bits 636-1511)
+		if (a.QuestCompleted != null)
+			for (int i = 0; i < 875; i++)
+				if (a.QuestCompleted[i].HasValue) return true;
+
+		// PvpInfo (bits 607-614)
+		if (a.PvpInfo != null)
+			for (int i = 0; i < a.PvpInfo.Length; i++)
+				if (a.PvpInfo[i] != null && (a.PvpInfo[i].Rating != 0 || a.PvpInfo[i].SeasonPlayed != 0 || a.PvpInfo[i].Disqualified)) return true;
+
 		return false;
 	}
 
 	/// <summary>
 	/// Writes ActivePlayerData update using TC343 bitmask format.
-	/// The changesMask has 48 blocks of 32 bits each (1536 total bits).
-	/// Key bit indices from TC343 UpdateFields.h:
-	///   Bit 0: group bit for fields 1-37
-	///   Bit 28: Coinage, Bit 29: XP, Bit 30: NextLevelXP
-	///   Bit 124: InvSlots group, Bits 125-265: InvSlots[0-140]
+	/// HasChangesMask&lt;1525&gt; = 48 blocks of 32 bits (1536 total).
+	/// TC343 UpdateFields.h bit assignments:
+	///   Block 0 (group bit 0):  26=FarsightObject, 28=Coinage, 29=XP, 30=NextLevelXP,
+	///                           31=TrialXP, 33=CharacterPoints, 34=MaxTalentTiers,
+	///                           35=TrackCreatureMask, 36=MainhandExpertise, 37=OffhandExpertise
+	///   Block 38 (group bit 38): 39-69 combat percentages, healing/dmg mods, LocalFlags
+	///   Block 70 (group bit 70): 71-101 honor/PvP/misc scalars
+	///   Block 102 (group bit 102): 103-123 honor, glyphs, backpack, etc.
+	///   Arrays: 124=InvSlots, 266=TrackResource, 269=SpellCrit/ModDmg, 298=ExploredZones,
+	///           542=WeaponMult, 549=Buyback, 574=CombatRatings, 615=NoReagentCost,
+	///           620=ProfSkill, 623=BagFlags, 628=BankBagFlags, 636=QuestCompleted
 	/// </summary>
 	private void WriteUpdateActivePlayerData(WorldPacket data)
 	{
@@ -354,53 +490,269 @@ public class ObjectUpdateBuilder
 
 		// Build changesMask (1536 bits = 48 blocks of 32)
 		uint[] blocks = new uint[48];
+		void SetBit(int bit) { blocks[bit / 32] |= (1u << (bit % 32)); }
+		bool IsBitSet(int bit) { return (blocks[bit / 32] & (1u << (bit % 32))) != 0; }
 
-		// Helper to set a bit in the changesMask
-		void SetBit(int bit)
+		// Pre-compute KnownTitles (uint?[12] → ulong[6])
+		int knownTitlesCount = 0;
+		ulong[] knownTitles64 = new ulong[6];
+		if (a.KnownTitles != null)
 		{
-			blocks[bit / 32] |= (1u << (bit % 32));
+			bool hasAnyTitle = false;
+			for (int i = 0; i < a.KnownTitles.Length; i++)
+				if (a.KnownTitles[i].HasValue) { hasAnyTitle = true; break; }
+			if (hasAnyTitle)
+			{
+				knownTitlesCount = 6;
+				for (int i = 0; i < 6; i++)
+				{
+					uint lo = (i * 2 < a.KnownTitles.Length && a.KnownTitles[i * 2].HasValue) ? a.KnownTitles[i * 2].Value : 0;
+					uint hi = (i * 2 + 1 < a.KnownTitles.Length && a.KnownTitles[i * 2 + 1].HasValue) ? a.KnownTitles[i * 2 + 1].Value : 0;
+					knownTitles64[i] = (ulong)lo | ((ulong)hi << 32);
+				}
+				SetBit(0); SetBit(3); // dynamic field KnownTitles
+			}
 		}
 
-		// Group 0 scalar fields (bits 26-37)
+		// Pre-compute GlyphSlots/Glyphs from GameSessionData
+		// NOTE: Glyphs only change via specific packets, not update fields.
+		// Sending them in every Values update is wasteful and may cause format issues.
+		// Glyphs are already set correctly in the CREATE path.
+		bool hasGlyphChanges = false;
+
+		// ============================================================
+		// SET BITS — Block 0 scalar fields (group bit 0, fields 26-37)
+		// ============================================================
+		if (a.FarsightObject != null) { SetBit(0); SetBit(26); }
+		// 27: SummonedBattlePetGUID — not used in WotLK
 		if (a.Coinage.HasValue) { SetBit(0); SetBit(28); }
 		if (a.XP.HasValue) { SetBit(0); SetBit(29); }
 		if (a.NextLevelXP.HasValue) { SetBit(0); SetBit(30); }
-		// Group 1 scalar fields (bits 38-69)
+		if (a.TrialXP.HasValue) { SetBit(0); SetBit(31); }
+		if (a.Skill != null && HasAnySkillChanged(a.Skill)) { SetBit(0); SetBit(32); }
+		if (a.CharacterPoints.HasValue) { SetBit(0); SetBit(33); }
+		if (a.MaxTalentTiers.HasValue) { SetBit(0); SetBit(34); }
+		if (a.TrackCreatureMask.HasValue) { SetBit(0); SetBit(35); }
+		if (a.MainhandExpertise.HasValue) { SetBit(0); SetBit(36); }
+		if (a.OffhandExpertise.HasValue) { SetBit(0); SetBit(37); }
+
+		// ============================================================
+		// SET BITS — Block 38 scalar fields (group bit 38, fields 39-69)
+		// ============================================================
+		if (a.RangedExpertise.HasValue) { SetBit(38); SetBit(39); }
+		if (a.CombatRatingExpertise.HasValue) { SetBit(38); SetBit(40); }
+		if (a.BlockPercentage.HasValue) { SetBit(38); SetBit(41); }
+		if (a.DodgePercentage.HasValue) { SetBit(38); SetBit(42); }
+		if (a.DodgePercentageFromAttribute.HasValue) { SetBit(38); SetBit(43); }
+		if (a.ParryPercentage.HasValue) { SetBit(38); SetBit(44); }
+		if (a.ParryPercentageFromAttribute.HasValue) { SetBit(38); SetBit(45); }
+		if (a.CritPercentage.HasValue) { SetBit(38); SetBit(46); }
+		if (a.RangedCritPercentage.HasValue) { SetBit(38); SetBit(47); }
+		if (a.OffhandCritPercentage.HasValue) { SetBit(38); SetBit(48); }
+		if (a.ShieldBlock.HasValue) { SetBit(38); SetBit(49); }
+		// 50: ShieldBlockCritPercentage — no property
+		if (a.Mastery.HasValue) { SetBit(38); SetBit(51); }
+		if (a.Speed.HasValue) { SetBit(38); SetBit(52); }
+		if (a.Avoidance.HasValue) { SetBit(38); SetBit(53); }
+		if (a.Sturdiness.HasValue) { SetBit(38); SetBit(54); }
+		if (a.Versatility.HasValue) { SetBit(38); SetBit(55); }
+		if (a.VersatilityBonus.HasValue) { SetBit(38); SetBit(56); }
+		if (a.PvpPowerDamage.HasValue) { SetBit(38); SetBit(57); }
+		if (a.PvpPowerHealing.HasValue) { SetBit(38); SetBit(58); }
+		if (a.ModHealingDonePos.HasValue) { SetBit(38); SetBit(59); }
+		if (a.ModHealingPercent.HasValue) { SetBit(38); SetBit(60); }
+		if (a.ModHealingDonePercent.HasValue) { SetBit(38); SetBit(61); }
+		if (a.ModPeriodicHealingDonePercent.HasValue) { SetBit(38); SetBit(62); }
+		if (a.ModSpellPowerPercent.HasValue) { SetBit(38); SetBit(63); }
+		if (a.ModResiliencePercent.HasValue) { SetBit(38); SetBit(64); }
+		if (a.OverrideSpellPowerByAPPercent.HasValue) { SetBit(38); SetBit(65); }
+		if (a.OverrideAPBySpellPowerPercent.HasValue) { SetBit(38); SetBit(66); }
+		if (a.ModTargetResistance.HasValue) { SetBit(38); SetBit(67); }
+		if (a.ModTargetPhysicalResistance.HasValue) { SetBit(38); SetBit(68); }
 		if (a.LocalFlags.HasValue) { SetBit(38); SetBit(69); }
 
-		// InvSlots: bit 124 = group bit, bits 125-265 = individual slots
+		// ============================================================
+		// SET BITS — Block 70 scalar fields (group bit 70, fields 71-101)
+		// ============================================================
+		if (a.GrantableLevels.HasValue) { SetBit(70); SetBit(71); }
+		if (a.MultiActionBars.HasValue) { SetBit(70); SetBit(72); }
+		if (a.LifetimeMaxRank.HasValue) { SetBit(70); SetBit(73); }
+		if (a.NumRespecs.HasValue) { SetBit(70); SetBit(74); }
+		if (a.AmmoID.HasValue) { SetBit(70); SetBit(75); }
+		if (a.PvpMedals.HasValue) { SetBit(70); SetBit(76); }
+		if (a.TodayHonorableKills.HasValue) { SetBit(70); SetBit(77); }
+		if (a.TodayDishonorableKills.HasValue) { SetBit(70); SetBit(78); }
+		if (a.YesterdayHonorableKills.HasValue) { SetBit(70); SetBit(79); }
+		if (a.YesterdayDishonorableKills.HasValue) { SetBit(70); SetBit(80); }
+		if (a.LastWeekHonorableKills.HasValue) { SetBit(70); SetBit(81); }
+		if (a.LastWeekDishonorableKills.HasValue) { SetBit(70); SetBit(82); }
+		if (a.ThisWeekHonorableKills.HasValue) { SetBit(70); SetBit(83); }
+		if (a.ThisWeekDishonorableKills.HasValue) { SetBit(70); SetBit(84); }
+		if (a.ThisWeekContribution.HasValue) { SetBit(70); SetBit(85); }
+		if (a.LifetimeHonorableKills.HasValue) { SetBit(70); SetBit(86); }
+		if (a.LifetimeDishonorableKills.HasValue) { SetBit(70); SetBit(87); }
+		// 88: Field_F24 — unused
+		if (a.YesterdayContribution.HasValue) { SetBit(70); SetBit(89); }
+		if (a.LastWeekContribution.HasValue) { SetBit(70); SetBit(90); }
+		if (a.LastWeekRank.HasValue) { SetBit(70); SetBit(91); }
+		if (a.WatchedFactionIndex.HasValue) { SetBit(70); SetBit(92); }
+		if (a.MaxLevel.HasValue) { SetBit(70); SetBit(93); }
+		if (a.ScalingPlayerLevelDelta.HasValue) { SetBit(70); SetBit(94); }
+		if (a.MaxCreatureScalingLevel.HasValue) { SetBit(70); SetBit(95); }
+		if (a.PetSpellPower.HasValue) { SetBit(70); SetBit(96); }
+		if (a.UiHitModifier.HasValue) { SetBit(70); SetBit(97); }
+		if (a.UiSpellHitModifier.HasValue) { SetBit(70); SetBit(98); }
+		if (a.HomeRealmTimeOffset.HasValue) { SetBit(70); SetBit(99); }
+		if (a.ModPetHaste.HasValue) { SetBit(70); SetBit(100); }
+		if (a.LocalRegenFlags.HasValue) { SetBit(70); SetBit(101); }
+
+		// ============================================================
+		// SET BITS — Block 102 scalar fields (group bit 102, fields 103-123)
+		// ============================================================
+		if (a.AuraVision.HasValue) { SetBit(102); SetBit(103); }
+		if (a.NumBackpackSlots.HasValue) { SetBit(102); SetBit(104); }
+		if (a.OverrideSpellsID.HasValue) { SetBit(102); SetBit(105); }
+		if (a.LfgBonusFactionID.HasValue) { SetBit(102); SetBit(106); }
+		if (a.LootSpecID.HasValue) { SetBit(102); SetBit(107); }
+		if (a.OverrideZonePVPType.HasValue) { SetBit(102); SetBit(108); }
+		if (a.Honor.HasValue) { SetBit(102); SetBit(109); }
+		if (a.HonorNextLevel.HasValue) { SetBit(102); SetBit(110); }
+		// 111: Field_F74 — unused
+		if (a.PvPTierMaxFromWins.HasValue) { SetBit(102); SetBit(112); }
+		if (a.PvPLastWeeksTierMaxFromWins.HasValue) { SetBit(102); SetBit(113); }
+		if (a.PvPRankProgress.HasValue) { SetBit(102); SetBit(114); }
+		// 115-123: GlyphsEnabled (120) set in create path only
+		// Sending GlyphsEnabled in every Values update adds block 102 + FlushBits overhead
+
+		// ============================================================
+		// SET BITS — Array fields
+		// ============================================================
+
+		// InvSlots (header 124, elements 125-265)
 		int invSlotsChanged = 0;
 		for (int i = 0; i < 141; i++)
 		{
-			WowGuid128 slot = GetModernInvSlot(a, i);
-			if (slot != null)
+			if (GetModernInvSlot(a, i) != null)
 			{
-				SetBit(124); // group bit
+				SetBit(124);
 				SetBit(125 + i);
 				invSlotsChanged++;
 			}
 		}
 
-		// Log what we're writing
-		System.Text.StringBuilder sb = new System.Text.StringBuilder();
-		sb.Append($"[ActivePlayerUpdate] Coinage={a.Coinage.HasValue} XP={a.XP.HasValue} NextLevelXP={a.NextLevelXP.HasValue} InvSlots={invSlotsChanged}");
-		if (invSlotsChanged > 0)
-		{
-			sb.Append(" slots:[");
-			for (int i = 0; i < 141; i++)
-			{
-				int bit = 125 + i;
-				if ((blocks[bit / 32] & (1u << (bit % 32))) != 0)
-					sb.Append($"{i},");
-			}
-			sb.Append("]");
-		}
-		for (int b = 0; b < 48; b++)
-			if (blocks[b] != 0)
-				sb.Append($" blk{b}=0x{blocks[b]:X8}");
-		Log.Print(LogType.Debug, sb.ToString(), "WriteUpdateActivePlayerData", "");
+		// TrackResourceMask (header 266, elements 267-268)
+		if (a.TrackResourceMask != null)
+			for (int i = 0; i < 2; i++)
+				if (a.TrackResourceMask[i].HasValue) { SetBit(266); SetBit(267 + i); }
 
-		// Write blocksMask: first uint32 for blocks 0-31, then 16 bits for blocks 32-47
+		// Shared header 269: SpellCritPercentage (270-276), ModDamageDonePos (277-283),
+		// ModDamageDoneNeg (284-290), ModDamageDonePercent (291-297)
+		if (a.SpellCritPercentage != null)
+			for (int i = 0; i < 7; i++)
+				if (a.SpellCritPercentage[i].HasValue) { SetBit(269); SetBit(270 + i); }
+		if (a.ModDamageDonePos != null)
+			for (int i = 0; i < 7; i++)
+				if (a.ModDamageDonePos[i].HasValue) { SetBit(269); SetBit(277 + i); }
+		if (a.ModDamageDoneNeg != null)
+			for (int i = 0; i < 7; i++)
+				if (a.ModDamageDoneNeg[i].HasValue) { SetBit(269); SetBit(284 + i); }
+		if (a.ModDamageDonePercent != null)
+			for (int i = 0; i < 7; i++)
+				if (a.ModDamageDonePercent[i].HasValue) { SetBit(269); SetBit(291 + i); }
+
+		// ExploredZones (header 298, elements 299-538)
+		if (a.ExploredZones != null)
+			for (int i = 0; i < 240; i++)
+				if (a.ExploredZones[i].HasValue) { SetBit(298); SetBit(299 + i); }
+
+		// RestInfo (header 539, elements 540-541)
+		if (a.RestInfo != null)
+			for (int i = 0; i < 2; i++)
+				if (a.RestInfo[i] != null && (a.RestInfo[i].Threshold.HasValue || a.RestInfo[i].StateID.HasValue))
+				{ SetBit(539); SetBit(540 + i); }
+
+		// Shared header 542: WeaponDmgMultipliers (543-545), WeaponAtkSpeedMultipliers (546-548)
+		if (a.WeaponDmgMultipliers != null)
+			for (int i = 0; i < 3; i++)
+				if (a.WeaponDmgMultipliers[i].HasValue) { SetBit(542); SetBit(543 + i); }
+		if (a.WeaponAtkSpeedMultipliers != null)
+			for (int i = 0; i < 3; i++)
+				if (a.WeaponAtkSpeedMultipliers[i].HasValue) { SetBit(542); SetBit(546 + i); }
+
+		// Shared header 549: BuybackPrice (550-561), BuybackTimestamp (562-573)
+		if (a.BuybackPrice != null)
+			for (int i = 0; i < 12; i++)
+				if (a.BuybackPrice[i].HasValue) { SetBit(549); SetBit(550 + i); }
+		if (a.BuybackTimestamp != null)
+			for (int i = 0; i < 12; i++)
+				if (a.BuybackTimestamp[i].HasValue) { SetBit(549); SetBit(562 + i); }
+
+		// CombatRatings (header 574, elements 575-606)
+		if (a.CombatRatings != null)
+			for (int i = 0; i < 32; i++)
+				if (a.CombatRatings[i].HasValue) { SetBit(574); SetBit(575 + i); }
+
+		// NoReagentCostMask (header 615, elements 616-619)
+		if (a.NoReagentCostMask != null)
+			for (int i = 0; i < 4; i++)
+				if (a.NoReagentCostMask[i].HasValue) { SetBit(615); SetBit(616 + i); }
+
+		// ProfessionSkillLine (header 620, elements 621-622)
+		if (a.ProfessionSkillLine != null)
+			for (int i = 0; i < 2; i++)
+				if (a.ProfessionSkillLine[i].HasValue) { SetBit(620); SetBit(621 + i); }
+
+		// BagSlotFlags (header 623, elements 624-627)
+		if (a.BagSlotFlags != null)
+			for (int i = 0; i < 4; i++)
+				if (a.BagSlotFlags[i].HasValue) { SetBit(623); SetBit(624 + i); }
+
+		// BankBagSlotFlags (header 628, elements 629-635)
+		if (a.BankBagSlotFlags != null)
+			for (int i = 0; i < 7; i++)
+				if (a.BankBagSlotFlags[i].HasValue) { SetBit(628); SetBit(629 + i); }
+
+		// QuestCompleted (header 636, elements 637-1511)
+		if (a.QuestCompleted != null)
+			for (int i = 0; i < 875; i++)
+				if (a.QuestCompleted[i].HasValue) { SetBit(636); SetBit(637 + i); }
+
+		// PvpInfo (header 607, elements 608-614)
+		if (a.PvpInfo != null)
+			for (int i = 0; i < Math.Min(a.PvpInfo.Length, 7); i++)
+				if (a.PvpInfo[i] != null && (a.PvpInfo[i].Rating != 0 || a.PvpInfo[i].SeasonPlayed != 0 || a.PvpInfo[i].Disqualified))
+				{ SetBit(607); SetBit(608 + i); }
+
+		// GlyphSlots (header 1512, elements 1513-1518) + Glyphs (header 1512, elements 1519-1524)
+		if (hasGlyphChanges)
+		{
+			SetBit(1512); // shared header
+			uint[] glyphSlotIds = { 21, 22, 23, 24, 25, 26 };
+			for (int i = 0; i < 6; i++)
+			{
+				SetBit(1513 + i); // GlyphSlots[i]
+				SetBit(1519 + i); // Glyphs[i]
+			}
+		}
+
+		// ============================================================
+		// DEBUG LOG
+		// ============================================================
+		int setBlockCount = 0;
+		System.Text.StringBuilder dbgBlocks = new System.Text.StringBuilder();
+		for (int b = 0; b < 48; b++)
+		{
+			if (blocks[b] != 0)
+			{
+				setBlockCount++;
+				dbgBlocks.Append($" blk{b}=0x{blocks[b]:X8}");
+			}
+		}
+		Log.Print(LogType.Debug, $"[ActivePlayerUpdate] {setBlockCount} blocks set, InvSlots={invSlotsChanged}{dbgBlocks}", "WriteUpdateActivePlayerData", "");
+
+		// ============================================================
+		// WRITE BLOCK MASKS
+		// ============================================================
 		uint blocksMask0 = 0;
 		for (int b = 0; b < 32; b++)
 			if (blocks[b] != 0) blocksMask0 |= (1u << b);
@@ -411,7 +763,6 @@ public class ObjectUpdateBuilder
 		data.WriteUInt32(blocksMask0);
 		data.WriteBits(blocksMask1, 16);
 
-		// Write each set block's 32-bit mask
 		for (int b = 0; b < 48; b++)
 		{
 			bool blockSet = (b < 32) ? ((blocksMask0 & (1u << b)) != 0) : ((blocksMask1 & (1u << (b - 32))) != 0);
@@ -419,41 +770,357 @@ public class ObjectUpdateBuilder
 				data.WriteBits(blocks[b], 32);
 		}
 
-		// No dynamic fields used - two FlushBits for the two dynamic mask sections
-		data.FlushBits();
-		data.FlushBits();
-
-		// Write actual field values in TC343 order
-
-		// Group 0 scalar fields
-		if (blocks[0] != 0)
+		// Dynamic field masks (TC343 order: bits 1, 2, 3, 20-25, 4-19)
+		// Bit 1: SortBagsRightToLeft — not used
+		// Bit 2: InsertItemsLeftToRight — not used
+		if (IsBitSet(3)) // KnownTitles
 		{
-			if ((blocks[0] & (1u << 28)) != 0)
-				data.WriteUInt64(a.Coinage.Value);
-			if ((blocks[0] & (1u << 29)) != 0)
-				data.WriteInt32(a.XP.Value);
-			if ((blocks[0] & (1u << 30)) != 0)
-				data.WriteInt32(a.NextLevelXP.Value);
+			data.WriteBits((uint)knownTitlesCount, 32); // array element count
+			for (int i = 0; i < knownTitlesCount; i++)
+				data.WriteBit(true); // all elements changed
+		}
+		// Bits 4-25: other dynamic fields — not used
+		data.FlushBits(); // end of dynamic mask section
+
+		// Dynamic field data (TC343 order: Research data, then KnownTitles, then others)
+		if (IsBitSet(3)) // KnownTitles data
+		{
+			for (int i = 0; i < knownTitlesCount; i++)
+				data.WriteUInt64(knownTitles64[i]);
 		}
 
-		// Group 1 scalar fields (bits 38-69)
-		if (a.LocalFlags.HasValue && (blocks[69 / 32] & (1u << (69 % 32))) != 0)
-			data.WriteUInt32(a.LocalFlags.Value);
+		// ============================================================
+		// WRITE SCALAR DATA — Block 0 (bits 26-37)
+		// ============================================================
+		if (IsBitSet(0))
+		{
+			if (IsBitSet(26)) data.WritePackedGuid128(a.FarsightObject);
+			// 27: SummonedBattlePetGUID skipped
+			if (IsBitSet(28)) data.WriteUInt64(a.Coinage.Value);
+			if (IsBitSet(29)) data.WriteInt32(a.XP.Value);
+			if (IsBitSet(30)) data.WriteInt32(a.NextLevelXP.Value);
+			if (IsBitSet(31)) data.WriteInt32(a.TrialXP.Value);
+			if (IsBitSet(32)) WriteUpdateSkillInfo(data, a.Skill);
+			if (IsBitSet(33)) data.WriteInt32(a.CharacterPoints.Value);
+			if (IsBitSet(34)) data.WriteInt32(a.MaxTalentTiers.Value);
+			if (IsBitSet(35)) data.WriteUInt32(a.TrackCreatureMask.Value);
+			if (IsBitSet(36)) data.WriteFloat(a.MainhandExpertise.Value);
+			if (IsBitSet(37)) data.WriteFloat(a.OffhandExpertise.Value);
+		}
 
-		// InvSlots (after all scalar groups, per TC343 write order)
-		if ((blocks[124 / 32] & (1u << (124 % 32))) != 0)
+		// ============================================================
+		// WRITE SCALAR DATA — Block 38 (bits 39-69)
+		// ============================================================
+		if (IsBitSet(38))
+		{
+			if (IsBitSet(39)) data.WriteFloat(a.RangedExpertise.Value);
+			if (IsBitSet(40)) data.WriteFloat(a.CombatRatingExpertise.Value);
+			if (IsBitSet(41)) data.WriteFloat(a.BlockPercentage.Value);
+			if (IsBitSet(42)) data.WriteFloat(a.DodgePercentage.Value);
+			if (IsBitSet(43)) data.WriteFloat(a.DodgePercentageFromAttribute.Value);
+			if (IsBitSet(44)) data.WriteFloat(a.ParryPercentage.Value);
+			if (IsBitSet(45)) data.WriteFloat(a.ParryPercentageFromAttribute.Value);
+			if (IsBitSet(46)) data.WriteFloat(a.CritPercentage.Value);
+			if (IsBitSet(47)) data.WriteFloat(a.RangedCritPercentage.Value);
+			if (IsBitSet(48)) data.WriteFloat(a.OffhandCritPercentage.Value);
+			if (IsBitSet(49)) data.WriteInt32(a.ShieldBlock.Value);
+			// 50: ShieldBlockCritPercentage skipped
+			if (IsBitSet(51)) data.WriteFloat(a.Mastery.Value);
+			if (IsBitSet(52)) data.WriteFloat(a.Speed.Value);
+			if (IsBitSet(53)) data.WriteFloat(a.Avoidance.Value);
+			if (IsBitSet(54)) data.WriteFloat(a.Sturdiness.Value);
+			if (IsBitSet(55)) data.WriteInt32(a.Versatility.Value);
+			if (IsBitSet(56)) data.WriteFloat(a.VersatilityBonus.Value);
+			if (IsBitSet(57)) data.WriteFloat(a.PvpPowerDamage.Value);
+			if (IsBitSet(58)) data.WriteFloat(a.PvpPowerHealing.Value);
+			if (IsBitSet(59)) data.WriteInt32(a.ModHealingDonePos.Value);
+			if (IsBitSet(60)) data.WriteFloat(a.ModHealingPercent.Value);
+			if (IsBitSet(61)) data.WriteFloat(a.ModHealingDonePercent.Value);
+			if (IsBitSet(62)) data.WriteFloat(a.ModPeriodicHealingDonePercent.Value);
+			if (IsBitSet(63)) data.WriteFloat(a.ModSpellPowerPercent.Value);
+			if (IsBitSet(64)) data.WriteFloat(a.ModResiliencePercent.Value);
+			if (IsBitSet(65)) data.WriteFloat(a.OverrideSpellPowerByAPPercent.Value);
+			if (IsBitSet(66)) data.WriteFloat(a.OverrideAPBySpellPowerPercent.Value);
+			if (IsBitSet(67)) data.WriteInt32(a.ModTargetResistance.Value);
+			if (IsBitSet(68)) data.WriteInt32(a.ModTargetPhysicalResistance.Value);
+			if (IsBitSet(69)) data.WriteUInt32(a.LocalFlags.Value);
+		}
+
+		// ============================================================
+		// WRITE SCALAR DATA — Block 70 (bits 71-101)
+		// ============================================================
+		if (IsBitSet(70))
+		{
+			if (IsBitSet(71)) data.WriteUInt8(a.GrantableLevels.Value);
+			if (IsBitSet(72)) data.WriteUInt8(a.MultiActionBars.Value);
+			if (IsBitSet(73)) data.WriteUInt8(a.LifetimeMaxRank.Value);
+			if (IsBitSet(74)) data.WriteUInt8(a.NumRespecs.Value);
+			if (IsBitSet(75)) data.WriteInt32((int)a.AmmoID.Value);
+			if (IsBitSet(76)) data.WriteUInt32(a.PvpMedals.Value);
+			if (IsBitSet(77)) data.WriteUInt16(a.TodayHonorableKills.Value);
+			if (IsBitSet(78)) data.WriteUInt16(a.TodayDishonorableKills.Value);
+			if (IsBitSet(79)) data.WriteUInt16(a.YesterdayHonorableKills.Value);
+			if (IsBitSet(80)) data.WriteUInt16(a.YesterdayDishonorableKills.Value);
+			if (IsBitSet(81)) data.WriteUInt16(a.LastWeekHonorableKills.Value);
+			if (IsBitSet(82)) data.WriteUInt16(a.LastWeekDishonorableKills.Value);
+			if (IsBitSet(83)) data.WriteUInt16(a.ThisWeekHonorableKills.Value);
+			if (IsBitSet(84)) data.WriteUInt16(a.ThisWeekDishonorableKills.Value);
+			if (IsBitSet(85)) data.WriteUInt32(a.ThisWeekContribution.Value);
+			if (IsBitSet(86)) data.WriteUInt32(a.LifetimeHonorableKills.Value);
+			if (IsBitSet(87)) data.WriteUInt32(a.LifetimeDishonorableKills.Value);
+			// 88: Field_F24 skipped
+			if (IsBitSet(89)) data.WriteUInt32(a.YesterdayContribution.Value);
+			if (IsBitSet(90)) data.WriteUInt32(a.LastWeekContribution.Value);
+			if (IsBitSet(91)) data.WriteUInt32(a.LastWeekRank.Value);
+			if (IsBitSet(92)) data.WriteInt32(a.WatchedFactionIndex.Value);
+			if (IsBitSet(93)) data.WriteInt32(a.MaxLevel.Value);
+			if (IsBitSet(94)) data.WriteInt32(a.ScalingPlayerLevelDelta.Value);
+			if (IsBitSet(95)) data.WriteInt32(a.MaxCreatureScalingLevel.Value);
+			if (IsBitSet(96)) data.WriteInt32(a.PetSpellPower.Value);
+			if (IsBitSet(97)) data.WriteFloat(a.UiHitModifier.Value);
+			if (IsBitSet(98)) data.WriteFloat(a.UiSpellHitModifier.Value);
+			if (IsBitSet(99)) data.WriteInt32(a.HomeRealmTimeOffset.Value);
+			if (IsBitSet(100)) data.WriteFloat(a.ModPetHaste.Value);
+			if (IsBitSet(101)) data.WriteUInt8(a.LocalRegenFlags.Value);
+		}
+
+		// ============================================================
+		// WRITE SCALAR DATA — Block 102 (bits 103-123)
+		// ============================================================
+		if (IsBitSet(102))
+		{
+			if (IsBitSet(103)) data.WriteUInt8(a.AuraVision.Value);
+			if (IsBitSet(104)) data.WriteUInt8(a.NumBackpackSlots.Value);
+			if (IsBitSet(105)) data.WriteInt32(a.OverrideSpellsID.Value);
+			if (IsBitSet(106)) data.WriteInt32(a.LfgBonusFactionID.Value);
+			if (IsBitSet(107)) data.WriteUInt16((ushort)a.LootSpecID.Value);
+			if (IsBitSet(108)) data.WriteUInt32(a.OverrideZonePVPType.Value);
+			if (IsBitSet(109)) data.WriteInt32(a.Honor.Value);
+			if (IsBitSet(110)) data.WriteInt32(a.HonorNextLevel.Value);
+			// 111: Field_F74 skipped
+			if (IsBitSet(112)) data.WriteInt32((int)a.PvPTierMaxFromWins.Value);
+			if (IsBitSet(113)) data.WriteInt32((int)a.PvPLastWeeksTierMaxFromWins.Value);
+			if (IsBitSet(114)) data.WriteUInt8(a.PvPRankProgress.Value);
+			// 115-119 skipped
+			if (IsBitSet(120)) data.WriteUInt8(this.m_gameState.GlyphsEnabled);
+			// 121-123 skipped
+			data.FlushBits(); // TC343 flushes here before complex struct fields (116/117/122)
+		}
+
+		// ============================================================
+		// WRITE ARRAY DATA — TC343 write order
+		// ============================================================
+
+		// InvSlots (header 124, elements 125-265)
+		if (IsBitSet(124))
 		{
 			for (int i = 0; i < 141; i++)
 			{
-				int bit = 125 + i;
-				if ((blocks[bit / 32] & (1u << (bit % 32))) != 0)
+				if (IsBitSet(125 + i))
 				{
 					WowGuid128 guid = GetModernInvSlot(a, i) ?? WowGuid128.Empty;
-					Log.Print(LogType.Debug, $"[ActivePlayerUpdate] InvSlot[{i}] = {guid}", "WriteUpdateActivePlayerData", "");
 					data.WritePackedGuid128(guid);
 				}
 			}
 		}
+
+		// TrackResourceMask (header 266, elements 267-268)
+		if (IsBitSet(266))
+		{
+			for (int i = 0; i < 2; i++)
+				if (IsBitSet(267 + i))
+					data.WriteUInt32(a.TrackResourceMask[i].Value);
+		}
+
+		// SpellCritPercentage (header 269, elements 270-276)
+		// ModDamageDonePos (header 269, elements 277-283)
+		// ModDamageDoneNeg (header 269, elements 284-290)
+		// ModDamageDonePercent (header 269, elements 291-297)
+		if (IsBitSet(269))
+		{
+			for (int i = 0; i < 7; i++)
+				if (IsBitSet(270 + i))
+					data.WriteFloat(a.SpellCritPercentage[i].Value);
+			for (int i = 0; i < 7; i++)
+				if (IsBitSet(277 + i))
+					data.WriteInt32(a.ModDamageDonePos[i].Value);
+			for (int i = 0; i < 7; i++)
+				if (IsBitSet(284 + i))
+					data.WriteInt32(a.ModDamageDoneNeg[i].Value);
+			for (int i = 0; i < 7; i++)
+				if (IsBitSet(291 + i))
+					data.WriteFloat(a.ModDamageDonePercent[i].Value);
+		}
+
+		// ExploredZones (header 298, elements 299-538)
+		if (IsBitSet(298))
+		{
+			for (int i = 0; i < 240; i++)
+				if (IsBitSet(299 + i))
+					data.WriteUInt64(a.ExploredZones[i].Value);
+		}
+
+		// RestInfo (header 539, elements 540-541) — nested struct HasChangesMask<3>
+		if (IsBitSet(539))
+		{
+			for (int i = 0; i < 2; i++)
+			{
+				if (IsBitSet(540 + i))
+				{
+					var ri = a.RestInfo[i];
+					uint restMask = 0;
+					if (ri != null && ri.Threshold.HasValue) restMask |= 2;
+					if (ri != null && ri.StateID.HasValue) restMask |= 4;
+					if (restMask != 0) restMask |= 1; // group bit
+					data.WriteBits(restMask, 3);
+					data.FlushBits();
+					if ((restMask & 2) != 0) data.WriteUInt32(ri.Threshold.Value);
+					if ((restMask & 4) != 0) data.WriteUInt8((byte)ri.StateID.Value);
+				}
+			}
+		}
+
+		// WeaponDmgMultipliers (header 542, elements 543-545)
+		// WeaponAtkSpeedMultipliers (header 542, elements 546-548)
+		if (IsBitSet(542))
+		{
+			for (int i = 0; i < 3; i++)
+				if (IsBitSet(543 + i))
+					data.WriteFloat(a.WeaponDmgMultipliers[i].Value);
+			for (int i = 0; i < 3; i++)
+				if (IsBitSet(546 + i))
+					data.WriteFloat(a.WeaponAtkSpeedMultipliers[i].Value);
+		}
+
+		// BuybackPrice (header 549, elements 550-561)
+		// BuybackTimestamp (header 549, elements 562-573)
+		if (IsBitSet(549))
+		{
+			for (int i = 0; i < 12; i++)
+				if (IsBitSet(550 + i))
+					data.WriteUInt32(a.BuybackPrice[i].Value);
+			for (int i = 0; i < 12; i++)
+				if (IsBitSet(562 + i))
+					data.WriteInt64((long)a.BuybackTimestamp[i].Value);
+		}
+
+		// CombatRatings (header 574, elements 575-606)
+		if (IsBitSet(574))
+		{
+			for (int i = 0; i < 32; i++)
+				if (IsBitSet(575 + i))
+					data.WriteInt32(a.CombatRatings[i].Value);
+		}
+
+		// NoReagentCostMask (header 615, elements 616-619)
+		if (IsBitSet(615))
+		{
+			for (int i = 0; i < 4; i++)
+				if (IsBitSet(616 + i))
+					data.WriteUInt32(a.NoReagentCostMask[i].Value);
+		}
+
+		// ProfessionSkillLine (header 620, elements 621-622)
+		if (IsBitSet(620))
+		{
+			for (int i = 0; i < 2; i++)
+				if (IsBitSet(621 + i))
+					data.WriteInt32(a.ProfessionSkillLine[i].Value);
+		}
+
+		// BagSlotFlags (header 623, elements 624-627)
+		if (IsBitSet(623))
+		{
+			for (int i = 0; i < 4; i++)
+				if (IsBitSet(624 + i))
+					data.WriteUInt32(a.BagSlotFlags[i].Value);
+		}
+
+		// BankBagSlotFlags (header 628, elements 629-635)
+		if (IsBitSet(628))
+		{
+			for (int i = 0; i < 7; i++)
+				if (IsBitSet(629 + i))
+					data.WriteUInt32(a.BankBagSlotFlags[i].Value);
+		}
+
+		// QuestCompleted (header 636, elements 637-1511)
+		if (IsBitSet(636))
+		{
+			for (int i = 0; i < 875; i++)
+				if (IsBitSet(637 + i))
+					data.WriteUInt64(a.QuestCompleted[i].Value);
+		}
+
+		// GlyphSlots (header 1512, elements 1513-1518) + Glyphs (elements 1519-1524)
+		if (IsBitSet(1512))
+		{
+			uint[] glyphSlotIds = { 21, 22, 23, 24, 25, 26 };
+			for (int i = 0; i < 6; i++)
+				if (IsBitSet(1513 + i))
+					data.WriteUInt32(glyphSlotIds[i]);
+			for (int i = 0; i < 6; i++)
+				if (IsBitSet(1519 + i))
+					data.WriteUInt32((uint)(this.m_gameState.ActiveGlyphs[i]));
+		}
+
+		// PvpInfo (header 607, elements 608-614) — nested struct HasChangesMask<19>
+		if (IsBitSet(607))
+		{
+			for (int i = 0; i < 7; i++)
+			{
+				if (IsBitSet(608 + i))
+				{
+					PVPInfo pi = (a.PvpInfo != null && i < a.PvpInfo.Length) ? a.PvpInfo[i] : null;
+					// Build 19-bit changesMask for this PvpInfo entry
+					uint pvpMask = 0;
+					if (pi != null)
+					{
+						// Bit 1: Disqualified, 2: Bracket, 3: PvpRatingID
+						// 4: WeeklyPlayed, 5: WeeklyWon, 6: SeasonPlayed, 7: SeasonWon
+						// 8: Rating, 9: WeeklyBestRating, 10: SeasonBestRating
+						// 11: PvpTierID, 12: WeeklyBestWinPvpTierID, 13: Field_28, 14: Field_2C
+						// 15-18: Round stats (not in HermesProxy PVPInfo)
+						if (pi.Disqualified) pvpMask |= (1u << 1);
+						if (pi.WeeklyPlayed != 0) pvpMask |= (1u << 4);
+						if (pi.WeeklyWon != 0) pvpMask |= (1u << 5);
+						if (pi.SeasonPlayed != 0) pvpMask |= (1u << 6);
+						if (pi.SeasonWon != 0) pvpMask |= (1u << 7);
+						if (pi.Rating != 0) pvpMask |= (1u << 8);
+						if (pi.WeeklyBestRating != 0) pvpMask |= (1u << 9);
+						if (pi.SeasonBestRating != 0) pvpMask |= (1u << 10);
+						if (pi.PvpTierID != 0) pvpMask |= (1u << 11);
+						if (pi.WeeklyBestWinPvpTierID != 0) pvpMask |= (1u << 12);
+						if (pi.Field_28 != 0) pvpMask |= (1u << 13);
+						if (pi.Field_2C != 0) pvpMask |= (1u << 14);
+					}
+					if (pvpMask != 0) pvpMask |= 1; // group bit
+
+					// Write 19-bit mask then data
+					data.WriteBits(pvpMask, 19);
+					if ((pvpMask & (1u << 1)) != 0) data.WriteBit(pi.Disqualified);
+					data.FlushBits();
+					if ((pvpMask & 1) != 0)
+					{
+						// Bit 2: Bracket (int8) — not in HermesProxy, write 0
+						// Bit 3: PvpRatingID (int32) — not in HermesProxy, write 0
+						if ((pvpMask & (1u << 4)) != 0) data.WriteUInt32(pi.WeeklyPlayed);
+						if ((pvpMask & (1u << 5)) != 0) data.WriteUInt32(pi.WeeklyWon);
+						if ((pvpMask & (1u << 6)) != 0) data.WriteUInt32(pi.SeasonPlayed);
+						if ((pvpMask & (1u << 7)) != 0) data.WriteUInt32(pi.SeasonWon);
+						if ((pvpMask & (1u << 8)) != 0) data.WriteUInt32(pi.Rating);
+						if ((pvpMask & (1u << 9)) != 0) data.WriteUInt32(pi.WeeklyBestRating);
+						if ((pvpMask & (1u << 10)) != 0) data.WriteUInt32(pi.SeasonBestRating);
+						if ((pvpMask & (1u << 11)) != 0) data.WriteUInt32(pi.PvpTierID);
+						if ((pvpMask & (1u << 12)) != 0) data.WriteUInt32(pi.WeeklyBestWinPvpTierID);
+						if ((pvpMask & (1u << 13)) != 0) data.WriteUInt32(pi.Field_28);
+						if ((pvpMask & (1u << 14)) != 0) data.WriteUInt32(pi.Field_2C);
+					}
+				}
+			}
+		}
+
+		data.FlushBits();
 	}
 
 	private bool HasAnyUnitFieldSet()
@@ -465,10 +1132,11 @@ public class ObjectUpdateBuilder
 		if (u.SummonedBy != null || u.CreatedBy != null || u.Target != null) return true;
 		if (u.ChannelData != null) return true;
 		if (u.RaceId.HasValue || u.ClassId.HasValue || u.SexId.HasValue) return true;
-		if (u.Level.HasValue || u.EffectiveLevel.HasValue) return true;
-		if (u.FactionTemplate.HasValue || u.Flags.HasValue || u.Flags2.HasValue) return true;
-		if (u.AuraState.HasValue) return true;
+		if (u.Level.HasValue || u.EffectiveLevel.HasValue || u.DisplayPower.HasValue) return true;
+		if (u.FactionTemplate.HasValue || u.Flags.HasValue || u.Flags2.HasValue || u.Flags3.HasValue) return true;
+		if (u.AuraState.HasValue || u.OverrideDisplayPowerID.HasValue) return true;
 		if (u.BoundingRadius.HasValue || u.CombatReach.HasValue) return true;
+		if (u.DisplayScale.HasValue || u.NativeXDisplayScale.HasValue) return true;
 		if (u.NativeDisplayID.HasValue || u.MountDisplayID.HasValue) return true;
 		if (u.HoverHeight.HasValue || u.GuildGUID != null) return true;
 		if (u.NpcFlags != null)
@@ -513,6 +1181,125 @@ public class ObjectUpdateBuilder
 		return false;
 	}
 
+	/// <summary>
+	/// Returns true if any field in the SkillInfo has a value set.
+	/// </summary>
+	private static bool HasAnySkillChanged(SkillInfo s)
+	{
+		for (int i = 0; i < 256; i++)
+		{
+			if (s.SkillLineID[i].HasValue) return true;
+			if (s.SkillRank[i].HasValue) return true;
+			if (s.SkillMaxRank[i].HasValue) return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Writes SkillInfo nested update using TC343 format.
+	/// HasChangesMask&lt;1793&gt; = 57 blocks of 32 bits.
+	/// Bit 0: root flag, Bits 1-256: SkillLineID[0-255],
+	/// Bits 257-512: SkillStep, Bits 513-768: SkillRank,
+	/// Bits 769-1024: SkillStartingRank, Bits 1025-1280: SkillMaxRank,
+	/// Bits 1281-1536: SkillTempBonus, Bits 1537-1792: SkillPermBonus.
+	///
+	/// Mask encoding:
+	///   1. WriteUInt32(blocksMask0) — which of blocks 0-31 have changes
+	///   2. WriteBits(blocksMask1, 25) — which of blocks 32-56 have changes
+	///   3. For each set block: WriteBits(block[b], 32)
+	///   4. FlushBits
+	///   5. Data: per-skill interleaved (all 7 fields for skill i before skill i+1)
+	/// </summary>
+	private static void WriteUpdateSkillInfo(WorldPacket data, SkillInfo s)
+	{
+		if (s == null)
+		{
+			// Empty skill update — write empty masks
+			data.WriteUInt32(0); // blocksMask0
+			data.WriteBits(0, 25); // blocksMask1
+			data.FlushBits();
+			return;
+		}
+
+		// Build 1793-bit changesMask (57 blocks of 32)
+		uint[] skillBlocks = new uint[57];
+		void SB(int bit) { skillBlocks[bit / 32] |= (1u << (bit % 32)); }
+
+		bool anyChanged = false;
+		for (int i = 0; i < 256; i++)
+		{
+			if (s.SkillLineID[i].HasValue) { SB(1 + i); anyChanged = true; }
+			if (s.SkillStep[i].HasValue) { SB(257 + i); anyChanged = true; }
+			if (s.SkillRank[i].HasValue) { SB(513 + i); anyChanged = true; }
+			if (s.SkillStartingRank[i].HasValue) { SB(769 + i); anyChanged = true; }
+			if (s.SkillMaxRank[i].HasValue) { SB(1025 + i); anyChanged = true; }
+			if (s.SkillTempBonus[i].HasValue) { SB(1281 + i); anyChanged = true; }
+			if (s.SkillPermBonus[i].HasValue) { SB(1537 + i); anyChanged = true; }
+		}
+
+		if (anyChanged)
+			SB(0); // root bit
+
+		// Compute blocksMask0 (which of blocks 0-31 have non-zero masks)
+		uint blocksMask0 = 0;
+		for (int b = 0; b < 32 && b < 57; b++)
+			if (skillBlocks[b] != 0) blocksMask0 |= (1u << b);
+
+		// Compute blocksMask1 (which of blocks 32-56 have non-zero masks) — 25 bits
+		uint blocksMask1 = 0;
+		for (int b = 32; b < 57; b++)
+			if (skillBlocks[b] != 0) blocksMask1 |= (1u << (b - 32));
+
+		// Write masks
+		data.WriteUInt32(blocksMask0);
+		data.WriteBits(blocksMask1, 25);
+
+		// Write each set block's 32-bit mask
+		for (int b = 0; b < 57; b++)
+		{
+			bool blockSet = (b < 32) ? ((blocksMask0 & (1u << b)) != 0) : ((blocksMask1 & (1u << (b - 32))) != 0);
+			if (blockSet)
+				data.WriteBits(skillBlocks[b], 32);
+		}
+
+		data.FlushBits();
+
+		// Write data — per-skill interleaved (TC343 order)
+		if ((skillBlocks[0] & 1) != 0) // root bit set
+		{
+			for (int i = 0; i < 256; i++)
+			{
+				int lineIdBit = 1 + i;
+				if ((skillBlocks[lineIdBit / 32] & (1u << (lineIdBit % 32))) != 0)
+					data.WriteUInt16(s.SkillLineID[i].Value);
+
+				int stepBit = 257 + i;
+				if ((skillBlocks[stepBit / 32] & (1u << (stepBit % 32))) != 0)
+					data.WriteUInt16(s.SkillStep[i].Value);
+
+				int rankBit = 513 + i;
+				if ((skillBlocks[rankBit / 32] & (1u << (rankBit % 32))) != 0)
+					data.WriteUInt16(s.SkillRank[i].Value);
+
+				int startBit = 769 + i;
+				if ((skillBlocks[startBit / 32] & (1u << (startBit % 32))) != 0)
+					data.WriteUInt16(s.SkillStartingRank[i].Value);
+
+				int maxBit = 1025 + i;
+				if ((skillBlocks[maxBit / 32] & (1u << (maxBit % 32))) != 0)
+					data.WriteUInt16(s.SkillMaxRank[i].Value);
+
+				int tempBit = 1281 + i;
+				if ((skillBlocks[tempBit / 32] & (1u << (tempBit % 32))) != 0)
+					data.WriteInt16(s.SkillTempBonus[i].Value);
+
+				int permBit = 1537 + i;
+				if ((skillBlocks[permBit / 32] & (1u << (permBit % 32))) != 0)
+					data.WriteUInt16(s.SkillPermBonus[i].Value);
+			}
+		}
+	}
+
 	private void WriteValuesUpdate(WorldPacket data)
 	{
 		uint changedMask = 0u;
@@ -544,6 +1331,11 @@ public class ObjectUpdateBuilder
 		{
 			changedMask |= 0x80;
 		}
+		bool hasGameObjectChanges = this.m_objectTypeMask.HasAnyFlag(ObjectTypeMask.GameObject) && this.m_updateData.GameObjectData != null && this.HasAnyGameObjectFieldSet();
+		if (hasGameObjectChanges)
+		{
+			changedMask |= 0x100;
+		}
 		// Safety: if changedMask is 0, nothing to write
 		if (changedMask == 0)
 			return;
@@ -567,6 +1359,10 @@ public class ObjectUpdateBuilder
 		if (hasActivePlayerChanges)
 		{
 			this.WriteUpdateActivePlayerData(data);
+		}
+		if (hasGameObjectChanges)
+		{
+			this.WriteUpdateGameObjectData(data);
 		}
 	}
 
@@ -1152,6 +1948,7 @@ public class ObjectUpdateBuilder
 		{
 			SetBit(27);
 		}
+		if (unit.DisplayPower.HasValue) SetBit(28);
 		if (unit.Level.HasValue)
 		{
 			SetBit(30);
@@ -1172,10 +1969,12 @@ public class ObjectUpdateBuilder
 		{
 			SetBit(42);
 		}
+		if (unit.Flags3.HasValue) SetBit(43);
 		if (unit.AuraState.HasValue)
 		{
 			SetBit(44);
 		}
+		if (unit.OverrideDisplayPowerID.HasValue) SetBit(45);
 		if (unit.BoundingRadius.HasValue)
 		{
 			SetBit(46);
@@ -1184,10 +1983,12 @@ public class ObjectUpdateBuilder
 		{
 			SetBit(47);
 		}
+		if (unit.DisplayScale.HasValue) SetBit(48);
 		if (unit.NativeDisplayID.HasValue)
 		{
 			SetBit(49);
 		}
+		if (unit.NativeXDisplayScale.HasValue) SetBit(50);
 		if (unit.MountDisplayID.HasValue)
 		{
 			SetBit(51);
@@ -1198,7 +1999,7 @@ public class ObjectUpdateBuilder
 		if (unit.MinOffHandDamage.HasValue) SetBit(54);
 		if (unit.MaxOffHandDamage.HasValue) SetBit(55);
 		if (unit.StandState.HasValue) SetBit(56);
-		// 57 = PetTalentPoints (not tracked)
+		// 57 = PetTalentPoints (not in UnitData)
 		if (unit.VisFlags.HasValue) SetBit(58);
 		if (unit.AnimTier.HasValue) SetBit(59);
 		if (unit.PetNumber.HasValue) SetBit(60);
@@ -1214,7 +2015,8 @@ public class ObjectUpdateBuilder
 		if (unit.ModTimeRate.HasValue) SetBit(70);
 		if (unit.CreatedBySpell.HasValue) SetBit(71);
 		if (unit.EmoteState.HasValue) SetBit(72);
-		// 73-74 = TrainingPointsUsed/Total (not tracked individually)
+		if (unit.TrainingPointsUsed.HasValue) SetBit(73);
+		if (unit.TrainingPointsTotal.HasValue) SetBit(74);
 		if (unit.BaseMana.HasValue) SetBit(75);
 		if (unit.BaseHealth.HasValue) SetBit(76);
 		if (unit.SheatheState.HasValue) SetBit(77);
@@ -1291,8 +2093,35 @@ public class ObjectUpdateBuilder
 				}
 			}
 		}
+		if (unit.ModPowerRegen != null)
+		{
+			for (int j2 = 0; j2 < unit.ModPowerRegen.Length; j2++)
+			{
+				if (unit.ModPowerRegen[j2].HasValue)
+				{
+					SetBit(157 + j2);
+					hasAnyPowerGroup = true;
+				}
+			}
+		}
 		if (hasAnyPowerGroup)
 			SetBit(116); // parent bit for Power/MaxPower/Regen arrays
+		// VirtualItems array (parent bit 167, elements 168-170)
+		if (unit.VirtualItems != null)
+		{
+			bool hasAnyVI = false;
+			for (int i = 0; i < 3; i++)
+			{
+				if (unit.VirtualItems[i] != null && unit.VirtualItems[i].ItemID != 0)
+				{
+					SetBit(168 + i);
+					hasAnyVI = true;
+				}
+			}
+			if (hasAnyVI) SetBit(167);
+		}
+		// RangedAttackRoundBaseTime (bit 170 — shares VirtualItems parent 167? No, separate)
+		// Actually TC343 has RangedAttackRoundBaseTime at a different position. Check:
 		// AttackRoundBaseTime array (parent bit 171, elements 172-173)
 		if (unit.AttackRoundBaseTime != null)
 		{
@@ -1457,6 +2286,7 @@ public class ObjectUpdateBuilder
 			{
 				data.WriteUInt8(unit.SexId.Value);
 			}
+			if (unit.DisplayPower.HasValue) data.WriteUInt32(unit.DisplayPower.Value);
 			if (unit.Level.HasValue)
 			{
 				data.WriteInt32(unit.Level.Value);
@@ -1480,10 +2310,12 @@ public class ObjectUpdateBuilder
 			{
 				data.WriteUInt32(unit.Flags2.Value);
 			}
+			if (unit.Flags3.HasValue) data.WriteUInt32(unit.Flags3.Value);
 			if (unit.AuraState.HasValue)
 			{
 				data.WriteUInt32(unit.AuraState.Value);
 			}
+			if (unit.OverrideDisplayPowerID.HasValue) data.WriteUInt32(unit.OverrideDisplayPowerID.Value);
 			if (unit.BoundingRadius.HasValue)
 			{
 				data.WriteFloat(unit.BoundingRadius.Value);
@@ -1492,10 +2324,12 @@ public class ObjectUpdateBuilder
 			{
 				data.WriteFloat(unit.CombatReach.Value);
 			}
+			if (unit.DisplayScale.HasValue) data.WriteFloat(unit.DisplayScale.Value);
 			if (unit.NativeDisplayID.HasValue)
 			{
 				data.WriteInt32(unit.NativeDisplayID.Value);
 			}
+			if (unit.NativeXDisplayScale.HasValue) data.WriteFloat(unit.NativeXDisplayScale.Value);
 			if (unit.MountDisplayID.HasValue)
 			{
 				data.WriteInt32(unit.MountDisplayID.Value);
@@ -1524,7 +2358,8 @@ public class ObjectUpdateBuilder
 			if (unit.ModTimeRate.HasValue) data.WriteFloat(unit.ModTimeRate.Value);
 			if (unit.CreatedBySpell.HasValue) data.WriteInt32(unit.CreatedBySpell.Value);
 			if (unit.EmoteState.HasValue) data.WriteInt32(unit.EmoteState.Value);
-			// 73-74: TrainingPointsUsed/Total not tracked
+			if (unit.TrainingPointsUsed.HasValue) data.WriteUInt16(unit.TrainingPointsUsed.Value);
+			if (unit.TrainingPointsTotal.HasValue) data.WriteUInt16(unit.TrainingPointsTotal.Value);
 			if (unit.BaseMana.HasValue) data.WriteInt32(unit.BaseMana.Value);
 			if (unit.BaseHealth.HasValue) data.WriteInt32(unit.BaseHealth.Value);
 			if (unit.SheatheState.HasValue) data.WriteUInt8(unit.SheatheState.Value);
@@ -1594,10 +2429,28 @@ public class ObjectUpdateBuilder
 				{
 					data.WriteInt32(unit.MaxPower[pi].Value);
 				}
-				// ModPowerRegen[pi] (bits 157+) — not tracked, skip
+				if (unit.ModPowerRegen != null && pi < unit.ModPowerRegen.Length && unit.ModPowerRegen[pi].HasValue)
+				{
+					data.WriteFloat(unit.ModPowerRegen[pi].Value);
+				}
 			}
 		}
-		// VirtualItems (parent bit 167, elements 168-170) — not tracked in updates, skip
+		// VirtualItems (parent bit 167, elements 168-170)
+		if ((blockMasks[167 / 32] & (1u << (167 % 32))) != 0)
+		{
+			for (int vi = 0; vi < 3; vi++)
+			{
+				if ((blockMasks[(168 + vi) / 32] & (1u << ((168 + vi) % 32))) != 0)
+				{
+					var vItem = unit.VirtualItems[vi];
+					// VirtualItem::WriteUpdate: 4-bit mask + fields
+					// Bit 0=hasAny, 1=ItemID, 2=ItemAppearanceModID, 3=ItemVisual
+					data.WriteBits(0x03u, 4); // bits 0+1 set (hasAny + ItemID)
+					data.FlushBits();
+					data.WriteInt32(vItem != null ? vItem.ItemID : 0);
+				}
+			}
+		}
 		// AttackRoundBaseTime array (parent bit 171, elements 172-173) — block 5
 		if ((blockMasks[171 / 32] & (1u << (171 % 32))) != 0)
 		{
@@ -1766,64 +2619,99 @@ public class ObjectUpdateBuilder
 	{
 		PlayerData p = this.m_updateData.PlayerData;
 		if (p == null) return false;
-		// Check quest log entries
+		// Scalar fields (bits 4-31)
+		if (p.DuelArbiter != null || p.WowAccount != null || p.LootTargetGUID != null) return true;
+		if (p.PlayerFlags.HasValue || p.PlayerFlagsEx.HasValue) return true;
+		if (p.GuildRankID.HasValue || p.GuildDeleteDate.HasValue || p.GuildLevel.HasValue) return true;
+		if (p.NumBankSlots.HasValue || p.NativeSex.HasValue || p.Inebriation.HasValue) return true;
+		if (p.PvpTitle.HasValue || p.ArenaFaction.HasValue || p.PvPRank.HasValue) return true;
+		if (p.DuelTeam.HasValue || p.GuildTimeStamp.HasValue || p.ChosenTitle.HasValue) return true;
+		if (p.FakeInebriation.HasValue || p.VirtualPlayerRealm.HasValue || p.CurrentSpecID.HasValue) return true;
+		if (p.HonorLevel.HasValue) return true;
+		// Quest log (bits 35-60)
 		if (p.QuestLog != null)
 			for (int i = 0; i < p.QuestLog.Length; i++)
 				if (p.QuestLog[i] != null && p.QuestLog[i].QuestID.HasValue) return true;
-		// Check scalar fields
-		if (p.PlayerFlags.HasValue || p.PlayerFlagsEx.HasValue) return true;
-		if (p.ChosenTitle.HasValue) return true;
-		if (p.GuildTimeStamp.HasValue) return true;
-		// Check visible items
+		// Visible items (bits 61-80)
 		if (p.VisibleItems != null)
 			for (int i = 0; i < p.VisibleItems.Length; i++)
 				if (p.VisibleItems[i] != null) return true;
 		return false;
 	}
 
+	/// <summary>
+	/// Writes PlayerData update using TC343 bitmask format.
+	/// HasChangesMask&lt;108&gt; = 4 blocks of 32 bits.
+	/// TC343 bit assignments (all BlockBit=0):
+	///   1=Customizations(dyn), 2=ArenaCooldowns(dyn), 3=VisualItemReplacements(dyn)
+	///   4=DuelArbiter, 5=WowAccount, 6=LootTargetGUID, 7=PlayerFlags, 8=PlayerFlagsEx
+	///   9=GuildRankID, 10=GuildDeleteDate, 11=GuildLevel, 12=NumBankSlots, 13=NativeSex
+	///   14=Inebriation, 15=PvpTitle, 16=ArenaFaction, 17=PvpRank, 18=Field_88
+	///   19=DuelTeam, 20=GuildTimeStamp, 21=PlayerTitle/ChosenTitle, 22=FakeInebriation
+	///   23=VirtualPlayerRealm, 24=CurrentSpecID, 25=TaxiMountAnimKitID
+	///   26=CurrentBattlePetBreedQuality, 27=HonorLevel, 28=LogoutTime
+	///   32-33=PartyType[2], 35-60=QuestLog[25], 61-80=VisibleItems[19]
+	/// </summary>
 	private void WriteUpdatePlayerData(WorldPacket data)
 	{
 		PlayerData p = this.m_updateData.PlayerData ?? new PlayerData();
 
-		// TC343 PlayerData: HasChangesMask<108>, 4 blocks of 32 bits
-		// Block 0 (bits 0-31): dynamic[1-3] + scalar[4-31]
-		// Block 1 (bits 32-63): PartyType[33-34], QuestLog hasAny[35], QuestLog[36-60], VisibleItems hasAny[61], VisibleItems[62-63]
-		// Block 2 (bits 64-95): VisibleItems[64-80], AvgItemLevel hasAny[81], AvgItemLevel[82-87], Field_3120 hasAny[88], Field_3120[89-95]
-		// Block 3 (bits 96-107): Field_3120[96-107]
 		uint[] blocks = new uint[4];
+		void SetBit(int bit) { blocks[bit / 32] |= (1u << (bit % 32)); }
+		bool IsBitSet(int bit) { return (blocks[bit / 32] & (1u << (bit % 32))) != 0; }
 
-		// Block 0: scalar fields
-		if (p.PlayerFlags.HasValue) { blocks[0] |= (1u << 0) | (1u << 7); }
-		if (p.PlayerFlagsEx.HasValue) { blocks[0] |= (1u << 0) | (1u << 8); }
-		if (p.GuildTimeStamp.HasValue) { blocks[0] |= (1u << 0) | (1u << 20); }
-		if (p.ChosenTitle.HasValue) { blocks[0] |= (1u << 0) | (1u << 21); }
+		// Block 0: scalar fields (bits 4-31)
+		if (p.DuelArbiter != null) { SetBit(0); SetBit(4); }
+		if (p.WowAccount != null) { SetBit(0); SetBit(5); }
+		if (p.LootTargetGUID != null) { SetBit(0); SetBit(6); }
+		if (p.PlayerFlags.HasValue) { SetBit(0); SetBit(7); }
+		if (p.PlayerFlagsEx.HasValue) { SetBit(0); SetBit(8); }
+		if (p.GuildRankID.HasValue) { SetBit(0); SetBit(9); }
+		if (p.GuildDeleteDate.HasValue) { SetBit(0); SetBit(10); }
+		if (p.GuildLevel.HasValue) { SetBit(0); SetBit(11); }
+		if (p.NumBankSlots.HasValue) { SetBit(0); SetBit(12); }
+		if (p.NativeSex.HasValue) { SetBit(0); SetBit(13); }
+		if (p.Inebriation.HasValue) { SetBit(0); SetBit(14); }
+		if (p.PvpTitle.HasValue) { SetBit(0); SetBit(15); }
+		if (p.ArenaFaction.HasValue) { SetBit(0); SetBit(16); }
+		if (p.PvPRank.HasValue) { SetBit(0); SetBit(17); }
+		// 18: Field_88 — unused
+		if (p.DuelTeam.HasValue) { SetBit(0); SetBit(19); }
+		if (p.GuildTimeStamp.HasValue) { SetBit(0); SetBit(20); }
+		if (p.ChosenTitle.HasValue) { SetBit(0); SetBit(21); }
+		if (p.FakeInebriation.HasValue) { SetBit(0); SetBit(22); }
+		if (p.VirtualPlayerRealm.HasValue) { SetBit(0); SetBit(23); }
+		if (p.CurrentSpecID.HasValue) { SetBit(0); SetBit(24); }
+		// 25: TaxiMountAnimKitID — not tracked
+		// 26: CurrentBattlePetBreedQuality — not tracked
+		if (p.HonorLevel.HasValue) { SetBit(0); SetBit(27); }
+		// 28-31: LogoutTime, CurrentBattlePetSpeciesID, BnetAccount, DungeonScore — not tracked
 
-		// Block 1-2: QuestLog (bits 35-60) and VisibleItems (bits 61-80)
+		// QuestLog (header 35, elements 36-60)
 		bool hasAnyQuestLog = false;
 		for (int i = 0; i < 25; i++)
 		{
 			if (p.QuestLog[i] != null && p.QuestLog[i].QuestID.HasValue)
 			{
-				int bit = 36 + i;
-				blocks[bit / 32] |= (1u << (bit % 32));
-				blocks[35 / 32] |= (1u << (35 % 32)); // hasAny flag
+				SetBit(35);
+				SetBit(36 + i);
 				hasAnyQuestLog = true;
 			}
 		}
+
+		// VisibleItems (header 61, elements 62-80)
 		bool hasAnyVisibleItem = false;
 		for (int i = 0; i < 19; i++)
 		{
 			if (p.VisibleItems != null && i < p.VisibleItems.Length && p.VisibleItems[i] != null)
 			{
-				int bit = 62 + i;
-				blocks[bit / 32] |= (1u << (bit % 32));
-				blocks[61 / 32] |= (1u << (61 % 32)); // hasAny flag
+				SetBit(61);
+				SetBit(62 + i);
 				hasAnyVisibleItem = true;
 			}
 		}
 
-		// Log which fields are set
-		Log.Print(LogType.Debug, $"[PlayerDataUpdate] Flags={p.PlayerFlags.HasValue} FlagsEx={p.PlayerFlagsEx.HasValue} GuildTS={p.GuildTimeStamp.HasValue} Title={p.ChosenTitle.HasValue} QuestLog={hasAnyQuestLog} VisItems={hasAnyVisibleItem} blocks=[0x{blocks[0]:X8},0x{blocks[1]:X8},0x{blocks[2]:X8},0x{blocks[3]:X8}]", "WriteUpdatePlayerData", "");
+		Log.Print(LogType.Debug, $"[PlayerDataUpdate] blocks=[0x{blocks[0]:X8},0x{blocks[1]:X8},0x{blocks[2]:X8},0x{blocks[3]:X8}]", "WriteUpdatePlayerData", "");
 
 		// Write blocksMask (4 bits)
 		byte blocksMask = 0;
@@ -1838,20 +2726,35 @@ public class ObjectUpdateBuilder
 		// IsQuestLogChangesMaskSkipped = true → use WriteCreate format for quest entries
 		data.WriteBit(true);
 
-		// No dynamic fields (bits 1-3 of block 0 not set, so no masks needed)
+		// No dynamic fields (bits 1-3 not set)
 		data.FlushBits();
 
-		// Block 0: scalar field values in bit order
-		if ((blocks[0] & (1u << 0)) != 0)
+		// Block 0: scalar field values in TC343 bit order (4-31)
+		if (IsBitSet(0))
 		{
-			if ((blocks[0] & (1u << 7)) != 0)
-				data.WriteUInt32(p.PlayerFlags.Value);
-			if ((blocks[0] & (1u << 8)) != 0)
-				data.WriteUInt32(p.PlayerFlagsEx.Value);
-			if ((blocks[0] & (1u << 20)) != 0)
-				data.WriteInt32(p.GuildTimeStamp.Value);
-			if ((blocks[0] & (1u << 21)) != 0)
-				data.WriteInt32(p.ChosenTitle.Value);
+			if (IsBitSet(4)) data.WritePackedGuid128(p.DuelArbiter);
+			if (IsBitSet(5)) data.WritePackedGuid128(p.WowAccount);
+			if (IsBitSet(6)) data.WritePackedGuid128(p.LootTargetGUID);
+			if (IsBitSet(7)) data.WriteUInt32(p.PlayerFlags.Value);
+			if (IsBitSet(8)) data.WriteUInt32(p.PlayerFlagsEx.Value);
+			if (IsBitSet(9)) data.WriteUInt32(p.GuildRankID.Value);
+			if (IsBitSet(10)) data.WriteUInt32(p.GuildDeleteDate.Value);
+			if (IsBitSet(11)) data.WriteInt32(p.GuildLevel.Value);
+			if (IsBitSet(12)) data.WriteUInt8(p.NumBankSlots.Value);
+			if (IsBitSet(13)) data.WriteUInt8(p.NativeSex.Value);
+			if (IsBitSet(14)) data.WriteUInt8(p.Inebriation.Value);
+			if (IsBitSet(15)) data.WriteUInt8(p.PvpTitle.Value);
+			if (IsBitSet(16)) data.WriteUInt8(p.ArenaFaction.Value);
+			if (IsBitSet(17)) data.WriteUInt8(p.PvPRank.Value);
+			// 18: Field_88 skipped
+			if (IsBitSet(19)) data.WriteUInt32(p.DuelTeam.Value);
+			if (IsBitSet(20)) data.WriteInt32(p.GuildTimeStamp.Value);
+			if (IsBitSet(21)) data.WriteInt32(p.ChosenTitle.Value);
+			if (IsBitSet(22)) data.WriteInt32(p.FakeInebriation.Value);
+			if (IsBitSet(23)) data.WriteUInt32(p.VirtualPlayerRealm.Value);
+			if (IsBitSet(24)) data.WriteUInt32(p.CurrentSpecID.Value);
+			// 25-26 skipped
+			if (IsBitSet(27)) data.WriteInt32(p.HonorLevel.Value);
 		}
 
 		// QuestLog entries (bits 35-60) — WriteCreate format
@@ -1859,8 +2762,7 @@ public class ObjectUpdateBuilder
 		{
 			for (int i = 0; i < 25; i++)
 			{
-				int bit = 36 + i;
-				if ((blocks[bit / 32] & (1u << (bit % 32))) != 0)
+				if (IsBitSet(36 + i))
 				{
 					QuestLog quest = p.QuestLog[i];
 					data.WriteInt64(quest?.EndTime ?? 0);
@@ -1877,8 +2779,7 @@ public class ObjectUpdateBuilder
 		{
 			for (int i = 0; i < 19; i++)
 			{
-				int bit = 62 + i;
-				if ((blocks[bit / 32] & (1u << (bit % 32))) != 0)
+				if (IsBitSet(62 + i))
 				{
 					VisibleItem item = p.VisibleItems[i];
 					// VisibleItem has HasChangesMask<4>: bit 0=hasAny, 1=ItemID, 2=AppearanceModID, 3=ItemVisual
@@ -2168,6 +3069,98 @@ public class ObjectUpdateBuilder
 		data.WriteUInt32(0u);
 		data.WriteUInt32(go.CustomParam.GetValueOrDefault());
 		data.WriteUInt32(0u);
+	}
+
+	private bool HasAnyGameObjectFieldSet()
+	{
+		GameObjectData go = this.m_updateData.GameObjectData;
+		if (go == null) return false;
+		if (go.DisplayID.HasValue || go.SpellVisualID.HasValue || go.StateSpellVisualID.HasValue) return true;
+		if (go.StateAnimID.HasValue || go.StateAnimKitID.HasValue) return true;
+		if (go.CreatedBy != null || go.GuildGUID != null) return true;
+		if (go.Flags.HasValue || go.FactionTemplate.HasValue || go.Level.HasValue) return true;
+		if (go.State.HasValue || go.TypeID.HasValue || go.PercentHealth.HasValue) return true;
+		if (go.ArtKit.HasValue || go.CustomParam.HasValue) return true;
+		if (go.ParentRotation != null)
+			for (int i = 0; i < 4; i++)
+				if (go.ParentRotation[i].HasValue) return true;
+		return false;
+	}
+
+	/// <summary>
+	/// Writes GameObjectData update using TC343 bitmask format.
+	/// HasChangesMask&lt;20&gt; = 1 block of 32 bits.
+	/// TC343 bit assignments (all BlockBit=0):
+	///   1=StateWorldEffectIDs, 4=DisplayID, 5=SpellVisualID, 6=StateSpellVisualID,
+	///   7=StateAnimID, 8=StateAnimKitID, 9=CreatedBy, 10=GuildGUID, 11=Flags,
+	///   12=ParentRotation, 13=FactionTemplate, 14=Level, 15=State, 16=TypeID,
+	///   17=PercentHealth, 18=ArtKit, 19=CustomParam
+	/// </summary>
+	private void WriteUpdateGameObjectData(WorldPacket data)
+	{
+		GameObjectData go = this.m_updateData.GameObjectData ?? new GameObjectData();
+
+		uint mask = 0;
+		void SetBit(int bit) { mask |= (1u << bit); }
+		bool IsBitSet(int bit) { return (mask & (1u << bit)) != 0; }
+
+		// Set bits for changed fields
+		if (go.DisplayID.HasValue) { SetBit(0); SetBit(4); }
+		if (go.SpellVisualID.HasValue) { SetBit(0); SetBit(5); }
+		if (go.StateSpellVisualID.HasValue) { SetBit(0); SetBit(6); }
+		if (go.StateAnimID.HasValue) { SetBit(0); SetBit(7); }
+		if (go.StateAnimKitID.HasValue) { SetBit(0); SetBit(8); }
+		if (go.CreatedBy != null) { SetBit(0); SetBit(9); }
+		if (go.GuildGUID != null) { SetBit(0); SetBit(10); }
+		if (go.Flags.HasValue) { SetBit(0); SetBit(11); }
+		bool hasRotation = false;
+		if (go.ParentRotation != null)
+			for (int i = 0; i < 4; i++)
+				if (go.ParentRotation[i].HasValue) hasRotation = true;
+		if (hasRotation) { SetBit(0); SetBit(12); }
+		if (go.FactionTemplate.HasValue) { SetBit(0); SetBit(13); }
+		if (go.Level.HasValue) { SetBit(0); SetBit(14); }
+		if (go.State.HasValue) { SetBit(0); SetBit(15); }
+		if (go.TypeID.HasValue) { SetBit(0); SetBit(16); }
+		if (go.PercentHealth.HasValue) { SetBit(0); SetBit(17); }
+		if (go.ArtKit.HasValue) { SetBit(0); SetBit(18); }
+		if (go.CustomParam.HasValue) { SetBit(0); SetBit(19); }
+
+		// 1 block, 20 bits — write blocksMask (1 bit) then block mask
+		byte blocksMask = (mask != 0) ? (byte)1 : (byte)0;
+		data.WriteBits(blocksMask, 1);
+		if (blocksMask != 0)
+			data.WriteBits(mask, 20);
+
+		// No dynamic fields
+		data.FlushBits();
+
+		// Write field values in TC343 order (bits 4-19)
+		if (IsBitSet(0))
+		{
+			if (IsBitSet(4)) data.WriteInt32(go.DisplayID.Value);
+			if (IsBitSet(5)) data.WriteUInt32(go.SpellVisualID.Value);
+			if (IsBitSet(6)) data.WriteUInt32(go.StateSpellVisualID.Value);
+			if (IsBitSet(7)) data.WriteUInt32(go.StateAnimID.Value);
+			if (IsBitSet(8)) data.WriteUInt32(go.StateAnimKitID.Value);
+			if (IsBitSet(9)) data.WritePackedGuid128(go.CreatedBy);
+			if (IsBitSet(10)) data.WritePackedGuid128(go.GuildGUID);
+			if (IsBitSet(11)) data.WriteUInt32(go.Flags.Value);
+			if (IsBitSet(12))
+			{
+				data.WriteFloat(go.ParentRotation[0] ?? 0f);
+				data.WriteFloat(go.ParentRotation[1] ?? 0f);
+				data.WriteFloat(go.ParentRotation[2] ?? 0f);
+				data.WriteFloat(go.ParentRotation[3] ?? 1f);
+			}
+			if (IsBitSet(13)) data.WriteInt32(go.FactionTemplate.Value);
+			if (IsBitSet(14)) data.WriteInt32(go.Level.Value);
+			if (IsBitSet(15)) data.WriteInt8(go.State.Value);
+			if (IsBitSet(16)) data.WriteInt8(go.TypeID.Value);
+			if (IsBitSet(17)) data.WriteUInt8(go.PercentHealth.Value);
+			if (IsBitSet(18)) data.WriteUInt32(go.ArtKit.Value);
+			if (IsBitSet(19)) data.WriteUInt32(go.CustomParam.Value);
+		}
 	}
 
 	private void WriteCreateDynamicObjectData(WorldPacket data)

@@ -10075,6 +10075,21 @@ public class WorldClient
 		BitArray actuallyChangedValuesMaskArray;
 		Dictionary<int, UpdateField> updates = this.ReadValuesUpdateBlock(packet, ref type, index, isCreating: false, this.GetSession().GameState.GetCachedObjectFieldsLegacy(guid), out updateMaskArray, out actuallyChangedValuesMaskArray);
 		this.StoreObjectUpdate(guid, type, updateMaskArray, updates, auraUpdate, powerUpdate, isCreate: false, updateData, actuallyChangedValuesMaskArray);
+
+		// Merge changed fields back into ObjectCacheLegacy so inventory slot
+		// GUIDs and other values stay current for subsequent lookups
+		// (e.g. HandleItemPushResult reading GetInventorySlotItem).
+		this.GetSession().GameState.ObjectCacheMutex.WaitOne();
+		if (this.GetSession().GameState.ObjectCacheLegacy.TryGetValue(guid, out var cached))
+		{
+			foreach (var kvp in updates)
+				cached[kvp.Key] = kvp.Value;
+		}
+		else
+		{
+			this.GetSession().GameState.ObjectCacheLegacy[guid] = updates;
+		}
+		this.GetSession().GameState.ObjectCacheMutex.ReleaseMutex();
 	}
 
 	private string GetIndexString(params object[] values)
@@ -11310,7 +11325,18 @@ public class WorldClient
 					}
 				}
 			}
-			int UNIT_VIRTUAL_ITEM_SLOT_DISPLAY = LegacyVersion.GetUpdateField(UnitField.UNIT_VIRTUAL_ITEM_SLOT_DISPLAY);
+			int UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER = LegacyVersion.GetUpdateField(UnitField.UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER);
+		if (UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER >= 0)
+		{
+			for (int iPR = 0; iPR < 7; iPR++)
+			{
+				if (updateMaskArray[UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER + iPR])
+				{
+					updateData.UnitData.ModPowerRegen[iPR] = updates[UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER + iPR].FloatValue;
+				}
+			}
+		}
+		int UNIT_VIRTUAL_ITEM_SLOT_DISPLAY = LegacyVersion.GetUpdateField(UnitField.UNIT_VIRTUAL_ITEM_SLOT_DISPLAY);
 			if (UNIT_VIRTUAL_ITEM_SLOT_DISPLAY >= 0)
 			{
 				for (int i6 = 0; i6 < 3; i6++)
@@ -11924,6 +11950,7 @@ public class WorldClient
 					if (updateMaskArray[PLAYER_FIELD_PACK_SLOT_1 + i22 * 2])
 					{
 						updateData.ActivePlayerData.PackSlots[i22] = WorldClient.GetGuidValue(updates, PLAYER_FIELD_PACK_SLOT_1 + i22 * 2).To128(this.GetSession().GameState);
+						Log.Print(LogType.Debug, $"[InvUpdate] PackSlot[{i22}] = {updateData.ActivePlayerData.PackSlots[i22]} (modern idx {35 + i22})", "HandleUpdateObject", "");
 					}
 				}
 			}
@@ -11936,6 +11963,7 @@ public class WorldClient
 					if (updateMaskArray[PLAYER_FIELD_BANK_SLOT_1 + i23 * 2])
 					{
 						updateData.ActivePlayerData.BankSlots[i23] = WorldClient.GetGuidValue(updates, PLAYER_FIELD_BANK_SLOT_1 + i23 * 2).To128(this.GetSession().GameState);
+						Log.Print(LogType.Debug, $"[InvUpdate] BankSlot[{i23}] = {updateData.ActivePlayerData.BankSlots[i23]} (modern idx {59 + i23})", "HandleUpdateObject", "");
 					}
 				}
 			}

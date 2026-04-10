@@ -509,36 +509,36 @@ public static class ModernVersion
 		return 0u;
 	}
 
+	/// <summary>
+	/// Converts modern 3.4.3 inventory slot indices to legacy 3.3.5a slot indices.
+	/// TC343 slot layout → AzerothCore slot layout:
+	///   Equipment:  0-18  → 0-18   (no change)
+	///   Bags:       30-33 → 19-22  (offset 11)
+	///   Backpack:   35-50 → 23-38  (offset 12)
+	///   Bank items: 59-86 → 39-66  (offset 20)
+	///   Bank bags:  87-93 → 67-73  (offset 20)
+	///   Buyback:    94-105 → 74-85 (offset 20)
+	///   Keyring:    106-137 → 86-117 (offset 20)
+	/// </summary>
 	public static byte AdjustInventorySlot(byte slot)
 	{
-		byte offset = 0;
 		if (slot >= 30 && slot <= 33)
 		{
 			// Bag slots: modern 30-33 → legacy 19-22
-			offset = 11;
+			return (byte)(slot - 11);
 		}
-		else if (slot >= 35 && slot < 51)
+		if (slot >= 35 && slot <= 58)
 		{
-			// Backpack items: modern 35-50 → legacy 23-38
-			offset = 12;
+			// Backpack items: modern 35-58 → legacy 23-38 (16 slots base, 24 max)
+			return (byte)(slot - 12);
 		}
-		else if (slot >= 51 && slot < 75)
+		if (slot >= 59 && slot <= 137)
 		{
-			offset = (byte)(LegacyVersion.RemovedInVersion(ClientVersionBuild.V2_0_1_6180) ? 8 : ((!LegacyVersion.RemovedInVersion(ClientVersionBuild.V3_0_2_9056)) ? 8 : 8));
+			// Bank items (59-86), bank bags (87-93), buyback (94-105), keyring (106-137)
+			// All shift by 20: modern → legacy
+			return (byte)(slot - 20);
 		}
-		else if (slot >= 75 && slot < 82)
-		{
-			offset = (byte)(LegacyVersion.RemovedInVersion(ClientVersionBuild.V2_0_1_6180) ? 12 : ((!LegacyVersion.RemovedInVersion(ClientVersionBuild.V3_0_2_9056)) ? 8 : 8));
-		}
-		else if (slot >= 82 && slot < 94)
-		{
-			offset = (byte)(LegacyVersion.RemovedInVersion(ClientVersionBuild.V2_0_1_6180) ? 13 : ((!LegacyVersion.RemovedInVersion(ClientVersionBuild.V3_0_2_9056)) ? 8 : 8));
-		}
-		else if (slot >= 94 && slot < 126)
-		{
-			offset = (byte)(LegacyVersion.RemovedInVersion(ClientVersionBuild.V2_0_1_6180) ? 13 : ((!LegacyVersion.RemovedInVersion(ClientVersionBuild.V3_0_2_9056)) ? 8 : 8));
-		}
-		return (byte)(slot - offset);
+		return slot;
 	}
 
 	public static void ConvertAuraFlags(ushort oldFlags, byte slot, out AuraFlagsModern newFlags, out uint activeFlags)
