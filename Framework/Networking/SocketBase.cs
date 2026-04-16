@@ -34,6 +34,7 @@ namespace Framework.Networking
     {
         Socket _socket;
         IPEndPoint _remoteIPEndPoint;
+        IPEndPoint _localIPEndPoint;
 
         SocketAsyncEventArgs receiveSocketAsyncEventArgsWithCallback;
         SocketAsyncEventArgs receiveSocketAsyncEventArgs;
@@ -44,6 +45,7 @@ namespace Framework.Networking
         {
             _socket = socket;
             _remoteIPEndPoint = (IPEndPoint)_socket.RemoteEndPoint;
+            _localIPEndPoint = (IPEndPoint)_socket.LocalEndPoint;
 
             receiveSocketAsyncEventArgsWithCallback = new SocketAsyncEventArgs();
             receiveSocketAsyncEventArgsWithCallback.SetBuffer(new byte[0x4000], 0, 0x4000);
@@ -68,6 +70,11 @@ namespace Framework.Networking
         public IPEndPoint GetRemoteIpAddress()
         {
             return _remoteIPEndPoint;
+        }
+
+        public IPEndPoint GetLocalIpAddress()
+        {
+            return _localIPEndPoint;
         }
 
         public void AsyncReadWithCallback(SocketReadCallback callback)

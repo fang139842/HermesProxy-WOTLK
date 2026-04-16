@@ -61,33 +61,34 @@ public static class ModernVersion
 		{
 			return false;
 		}
-		foreach (object item in Enum.GetValues(enumType))
+		foreach (string oldOpcodeName in Enum.GetNames(enumType))
 		{
-			string oldOpcodeName = Enum.GetName(enumType, item);
-			if ((uint)item == 0 && oldOpcodeName != "MSG_NULL_ACTION")
+			object item = Enum.Parse(enumType, oldOpcodeName);
+			uint opcodeValue = (uint)item;
+			if (opcodeValue == 0 && oldOpcodeName != "MSG_NULL_ACTION")
 			{
 				continue;
 			}
 			HermesProxy.World.Enums.Opcode universalOpcode = Opcodes.GetUniversalOpcode(oldOpcodeName);
-			if (universalOpcode == HermesProxy.World.Enums.Opcode.MSG_NULL_ACTION && oldOpcodeName != "MSG_NULL_ACTION")
+			if (universalOpcode == HermesProxy.World.Enums.Opcode.UNKNOWN_SMSG && oldOpcodeName != "MSG_NULL_ACTION")
 			{
 				Log.Print(LogType.Error, "Opcode " + oldOpcodeName + " is missing from the universal opcode enum!", "LoadOpcodeDictionaries", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\VersionChecker.cs");
 				continue;
 			}
-			if (!ModernVersion.CurrentToUniversalOpcodeDictionary.ContainsKey((uint)item))
+			if (!ModernVersion.CurrentToUniversalOpcodeDictionary.ContainsKey(opcodeValue))
 			{
-				ModernVersion.CurrentToUniversalOpcodeDictionary.Add((uint)item, universalOpcode);
+				ModernVersion.CurrentToUniversalOpcodeDictionary.Add(opcodeValue, universalOpcode);
 			}
 			if (!ModernVersion.UniversalToCurrentOpcodeDictionary.ContainsKey(universalOpcode))
 			{
-				ModernVersion.UniversalToCurrentOpcodeDictionary.Add(universalOpcode, (uint)item);
+				ModernVersion.UniversalToCurrentOpcodeDictionary.Add(universalOpcode, opcodeValue);
 			}
 		}
 		if (ModernVersion.CurrentToUniversalOpcodeDictionary.Count < 1)
 		{
 			return false;
 		}
-		Log.Print(LogType.Server, $"Loaded {ModernVersion.CurrentToUniversalOpcodeDictionary.Count} modern opcodes.", "LoadOpcodeDictionaries", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\VersionChecker.cs");
+		Log.Print(LogType.Server, $"Loaded {ModernVersion.CurrentToUniversalOpcodeDictionary.Count} modern opcodes ({ModernVersion.UniversalToCurrentOpcodeDictionary.Count} universal mappings).", "LoadOpcodeDictionaries", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\VersionChecker.cs");
 		return true;
 	}
 
@@ -97,7 +98,7 @@ public static class ModernVersion
 		{
 			return universalOpcode;
 		}
-		return HermesProxy.World.Enums.Opcode.MSG_NULL_ACTION;
+		return HermesProxy.World.Enums.Opcode.UNKNOWN_SMSG;
 	}
 
 	public static uint GetCurrentOpcode(HermesProxy.World.Enums.Opcode universalOpcode)

@@ -663,7 +663,6 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 			this.GetSession().AuthClient.Disconnect();
 		}
 		this.SendConnectToInstance(ConnectToSerial.WorldAttempt1);
-		this.GetSession().GameState.IsConnectedToInstance = true;
 		this.GetSession().GameState.IsFirstEnterWorld = true;
 		this.GetSession().GameState.CurrentPlayerGuid = playerLogin.Guid;
 		this.GetSession().GameState.CurrentPlayerInfo = this.GetSession().GameState.OwnCharacters.Single((OwnCharacterInfo x) => x.CharacterGuid == playerLogin.Guid);
@@ -2853,31 +2852,6 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 		this.SendPacketToServer(legacyPacket);
 	}
 
-	[PacketHandler(Opcode.CMSG_DF_PROPOSAL_RESPONSE)]
-	private void HandleDfProposalResponse(WorldPacket packet)
-	{
-		// Modern: RideTicket + uint64 InstanceID + uint32 ProposalID + bit Accepted
-		RideTicket ticket = new RideTicket();
-		ticket.Read(packet);
-		ulong instanceID = packet.ReadUInt64();
-		uint proposalID = packet.ReadUInt32();
-		bool accepted = packet.HasBit();
-		// Legacy: uint32 ProposalID + uint8 Accept
-		WorldPacket legacyPacket = new WorldPacket(Opcode.CMSG_LFG_PROPOSAL_RESULT);
-		legacyPacket.WriteUInt32(proposalID);
-		legacyPacket.WriteUInt8((byte)(accepted ? 1 : 0));
-		this.SendPacketToServer(legacyPacket);
-	}
-
-	[PacketHandler(Opcode.CMSG_DF_PROPOSAL_RESPONSE)]
-	private void HandleDfProposalResponse(DfProposalResponsePkt packet)
-	{
-		WorldPacket legacyPacket = new WorldPacket(Opcode.CMSG_LFG_PROPOSAL_RESULT);
-		legacyPacket.WriteUInt32(packet.ProposalID);
-		legacyPacket.WriteUInt8((byte)(packet.Accepted ? 1 : 0));
-		this.SendPacketToServer(legacyPacket);
-	}
-
 	[PacketHandler(Opcode.CMSG_DF_LEAVE)]
 	private void HandleDfLeave(DfLeavePkt packet)
 	{
@@ -2917,16 +2891,6 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 
 	[PacketHandler(Opcode.CMSG_BATTLE_PET_REQUEST_JOURNAL)]
 	private void HandleBattlePetRequestJournal(BattlePetRequestJournalPkt packet)
-	{
-	}
-
-	[PacketHandler(Opcode.CMSG_GM_TICKET_GET_CASE_STATUS)]
-	private void HandleGmTicketGetCaseStatus(GmTicketGetCaseStatusPkt packet)
-	{
-	}
-
-	[PacketHandler(Opcode.CMSG_TUTORIAL_FLAG)]
-	private void HandleTutorialFlag(TutorialPkt packet)
 	{
 	}
 
@@ -3218,18 +3182,18 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 	}
 
 	[PacketHandler(Opcode.CMSG_ZONEUPDATE)]
-	private void HandleZoneUpdate(WorldPacket packet)
+	private void HandleZoneUpdate(ZoneUpdatePkt packet)
 	{
-		uint zoneId = packet.ReadUInt32();
+		uint zoneId = packet.ZoneId;
 		WorldPacket legacyPacket = new WorldPacket(Opcode.CMSG_ZONEUPDATE);
 		legacyPacket.WriteUInt32(zoneId);
 		this.SendPacketToServer(legacyPacket);
 	}
 
 	[PacketHandler(Opcode.CMSG_GM_TICKET_UPDATE_TEXT)]
-	private void HandleGMTicketUpdateText(WorldPacket packet)
+	private void HandleGMTicketUpdateText(GMTicketUpdateTextPkt packet)
 	{
-		string message = packet.ReadCString();
+		string message = packet.Message;
 		WorldPacket legacyPacket = new WorldPacket(Opcode.CMSG_GM_TICKET_UPDATE_TEXT);
 		legacyPacket.WriteCString(message);
 		this.SendPacketToServer(legacyPacket);
@@ -4937,9 +4901,9 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 		byte[] data = packet.GetData();
 		Opcode universalOpcode = packet.GetUniversalOpcode();
 		ushort opcode = (ushort)packet.GetOpcode();
-		if (opcode == 0)
+		if (opcode == 0 && universalOpcode != Opcode.MSG_NULL_ACTION)
 		{
-			Log.PrintNet(LogType.Warn, LogNetDir.P2C, $"Dropping packet with opcode 0 (universal={universalOpcode}, size={data.Length})", "SendPacket", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\WorldSocket.cs");
+			Log.PrintNet(LogType.Warn, LogNetDir.P2C, $"Dropping packet {universalOpcode} - missing modern opcode mapping! (size={data.Length})", "SendPacket", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\WorldSocket.cs");
 			MissingOpcodeTracker.LogDroppedSMSG(universalOpcode, data.Length);
 			this._sendMutex.ReleaseMutex();
 			return;
@@ -5148,6 +5112,14 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 	public void SendConnectToInstance(ConnectToSerial serial)
 	{
 		IPAddress externalIp = IPAddress.Parse(Settings.ExternalAddress);
+		if (IPAddress.IsLoopback(this.GetRemoteIpAddress().Address))
+		{
+			externalIp = IPAddress.Loopback;
+		}
+		else if (externalIp.Equals(IPAddress.Loopback))
+		{
+			externalIp = this.GetLocalIpAddress().Address;
+		}
 		IPEndPoint instanceAddress = new IPEndPoint(externalIp, Settings.InstancePort);
 		this._instanceConnectKey.AccountId = this.GetSession().AccountInfo.Id;
 		this._instanceConnectKey.connectionType = ConnectionType.Instance;
@@ -5199,6 +5171,21 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 		}
 	}
 
+	[PacketHandler(Opcode.CMSG_ADDON_LIST)]
+	private void HandleAddonList(AddonListPkt packet)
+	{
+		// this.SendPacket(new AddonInfoPacket(packet.AddonCount));
+	}
+
+	[PacketHandler(Opcode.CMSG_READY_FOR_ACCOUNT_DATA_TIMES)]
+	private void HandleReadyForAccountDataTimes(ReadyForAccountDataTimesPkt packet)
+	{
+		// 3.4.3 client sends this after entering world. 
+		// We should respond with SMSG_ACCOUNT_DATA_TIMES if we want to support settings sync.
+		this.SendMotd();
+		this.SendAccountDataTimes();
+	}
+
 	private void HandleEnterEncryptedModeAck()
 	{
 		this._worldCrypt.Initialize(this._encryptKey);
@@ -5212,12 +5199,15 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 			this.SendBnetConnectionState(1);
 			this.GetSession().AccountDataMgr = new AccountDataManager(this.GetSession().Username, this.GetSession().RealmManager.GetRealm(this._realmId).Name);
 			this.GetSession().RealmSocket = this;
+			this.GetSession().WorldClient.FlushPendingPackets();
 		}
 		else
 		{
 			Log.Print(LogType.Server, "Client has connected to the instance server.", "HandleEnterEncryptedModeAck", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\WorldSocket.cs");
 			this.SendPacket(new ResumeComms(ConnectionType.Instance));
+			this.GetSession().GameState.IsConnectedToInstance = true;
 			this.GetSession().InstanceSocket = this;
+			this.GetSession().WorldClient.FlushPendingPackets();
 		}
 	}
 
@@ -5511,12 +5501,14 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 		this.GetSession().AccountDataMgr.LoadAllData(guid);
 		AccountDataTimes accountData = new AccountDataTimes();
 		accountData.PlayerGuid = guid;
-		accountData.ServerTime = Time.UnixTime;
+		accountData.ServerTime = (uint)Time.UnixTime;
 		int count = ModernVersion.GetAccountDataCount();
-		accountData.AccountTimes = new long[count];
+		accountData.AccountTimes = new uint[32];
+		accountData.Mask = 0;
 		for (int i = 0; i < count; i++)
 		{
-			accountData.AccountTimes[i] = ((this.GetSession().AccountDataMgr.Data[i] != null) ? this.GetSession().AccountDataMgr.Data[i].Timestamp : 0);
+			accountData.Mask |= (1u << i);
+			accountData.AccountTimes[i] = (uint)((this.GetSession().AccountDataMgr.Data[i] != null) ? this.GetSession().AccountDataMgr.Data[i].Timestamp : 0);
 		}
 		this.SendPacket(accountData);
 	}
@@ -5565,7 +5557,7 @@ public class WorldSocket : SocketBase, BnetServices.INetwork
 					{
 						Log.Print(LogType.Error, "Method: " + methodInfo.Name + " Has no paramters", "InitializePacketHandlers", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\WorldSocket.cs");
 					}
-					else if (parameters[0].ParameterType.BaseType != typeof(ClientPacket))
+					else if (!typeof(ClientPacket).IsAssignableFrom(parameters[0].ParameterType))
 					{
 						Log.Print(LogType.Error, "Method: " + methodInfo.Name + " has wrong BaseType", "InitializePacketHandlers", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\WorldSocket.cs");
 					}

@@ -10,6 +10,8 @@ public abstract class ServerPacket
 
 	private ConnectionType connectionType;
 
+	private Opcode _universalOpcode;
+
 	protected WorldPacket _worldPacket;
 
 	public bool SkipSend { get; set; }
@@ -17,6 +19,7 @@ public abstract class ServerPacket
 	protected ServerPacket(Opcode universalOpcode)
 	{
 		this.connectionType = ConnectionType.Realm;
+		this._universalOpcode = universalOpcode;
 		uint opcode = ModernVersion.GetCurrentOpcode(universalOpcode);
 		this._worldPacket = new WorldPacket(opcode);
 	}
@@ -24,6 +27,7 @@ public abstract class ServerPacket
 	protected ServerPacket(Opcode universalOpcode, ConnectionType type = ConnectionType.Realm)
 	{
 		this.connectionType = type;
+		this._universalOpcode = universalOpcode;
 		uint opcode = ModernVersion.GetCurrentOpcode(universalOpcode);
 		this._worldPacket = new WorldPacket(opcode);
 	}
@@ -41,7 +45,7 @@ public abstract class ServerPacket
 
 	public Opcode GetUniversalOpcode()
 	{
-		return ModernVersion.GetUniversalOpcode(this.GetOpcode());
+		return this._universalOpcode;
 	}
 
 	public byte[] GetData()

@@ -13,10 +13,7 @@ public class InitializeFactions : ServerPacket
 
 	public ReputationFlags[] FactionFlags = new ReputationFlags[1000];
 
-	public static ushort GetFactionCount()
-	{
-		return (ushort)((ModernVersion.ExpansionVersion >= 3) ? 1000u : 400u);
-	}
+	public uint Count = 0;
 
 	public InitializeFactions()
 		: base(Opcode.SMSG_INITIALIZE_FACTIONS, ConnectionType.Instance)
@@ -25,23 +22,30 @@ public class InitializeFactions : ServerPacket
 
 	public override void Write()
 	{
-		ushort count = InitializeFactions.GetFactionCount();
-		for (ushort i = 0; i < count; i++)
+		if (ModernVersion.ExpansionVersion >= 3)
 		{
-			if (ModernVersion.ExpansionVersion >= 3)
+			// 3.4.3: uint32 count + for each: (uint8 flag + int32 standing) + for each: bit hasBonus
+			base._worldPacket.WriteUInt32(this.Count);
+			for (uint i = 0; i < this.Count; i++)
 			{
-				base._worldPacket.WriteUInt16((ushort)this.FactionFlags[i]);
+				base._worldPacket.WriteUInt8((byte)this.FactionFlags[i]);
+				base._worldPacket.WriteInt32(this.FactionStandings[i]);
 			}
-			else
+			for (uint i = 0; i < this.Count; i++)
 			{
-				base._worldPacket.WriteUInt8((byte)(this.FactionFlags[i] & (ReputationFlags.Visible | ReputationFlags.AtWar | ReputationFlags.Hidden | ReputationFlags.Header | ReputationFlags.Peaceful | ReputationFlags.Inactive | ReputationFlags.ShowPropagated | ReputationFlags.HeaderShowsBar)));
+				base._worldPacket.WriteBit(this.FactionHasBonus[i]);
 			}
-			base._worldPacket.WriteInt32(this.FactionStandings[i]);
+			base._worldPacket.FlushBits();
 		}
-		for (ushort i2 = 0; i2 < count; i2++)
+		else
 		{
-			base._worldPacket.WriteBit(this.FactionHasBonus[i2]);
+			// Legacy fallback or other versions
+			base._worldPacket.WriteUInt32(this.Count);
+			for (uint i = 0; i < this.Count; i++)
+			{
+				base._worldPacket.WriteUInt8((byte)this.FactionFlags[i]);
+				base._worldPacket.WriteInt32(this.FactionStandings[i]);
+			}
 		}
-		base._worldPacket.FlushBits();
 	}
 }

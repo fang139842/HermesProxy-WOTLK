@@ -131,7 +131,7 @@ public static class Opcodes
 		{
 			return (Opcode)opcode;
 		}
-		return Opcode.MSG_NULL_ACTION;
+		return Opcode.UNKNOWN_SMSG;
 	}
 
 	private static uint FindOpcodeValueInEnum<T>(string name) where T : Enum

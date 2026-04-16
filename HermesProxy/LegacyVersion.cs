@@ -87,7 +87,8 @@ public static class LegacyVersion
 		{
 			return universalOpcode;
 		}
-		return HermesProxy.World.Enums.Opcode.MSG_NULL_ACTION;
+		Log.Print(LogType.Warn, $"Unknown legacy opcode 0x{opcode:X4} received from server!", "GetUniversalOpcode", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\VersionChecker.cs");
+		return HermesProxy.World.Enums.Opcode.UNKNOWN_SMSG;
 	}
 
 	public static uint GetCurrentOpcode(HermesProxy.World.Enums.Opcode universalOpcode)

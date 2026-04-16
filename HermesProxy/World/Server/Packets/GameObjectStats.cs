@@ -23,4 +23,6 @@ public class GameObjectStats
 	public List<uint> QuestItems = new List<uint>();
 
 	public uint ContentTuningId;
+
+	public uint RequiredLevel;
 }

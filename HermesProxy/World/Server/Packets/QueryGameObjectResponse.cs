@@ -49,6 +49,7 @@ public class QueryGameObjectResponse : ServerPacket
 				statsData.WriteUInt32(questItem);
 			}
 			statsData.WriteUInt32(this.Stats.ContentTuningId);
+			statsData.WriteUInt32(this.Stats.RequiredLevel);
 		}
 		base._worldPacket.WriteUInt32(statsData.GetSize());
 		if (statsData.GetSize() != 0)

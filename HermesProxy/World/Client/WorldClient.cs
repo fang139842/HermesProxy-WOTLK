@@ -4144,6 +4144,22 @@ public class WorldClient
 		this.SendPacketToClient(invite);
 	}
 
+	[PacketHandler(Opcode.MSG_GUILD_PERMISSIONS)]
+	private void HandleGuildPermissions(WorldPacket packet)
+	{
+		GuildPermissionsQueryResults results = new GuildPermissionsQueryResults();
+		results.GuildID = packet.ReadUInt32();
+		results.RankID = packet.ReadUInt32();
+		results.Flags = packet.ReadUInt32();
+		results.WithdrawGoldLimit = packet.ReadUInt32();
+		results.RemainingWithdrawGoldLimit = packet.ReadUInt32();
+		for (int i = 0; i < 6; i++)
+		{
+			results.TabPermissions[i] = packet.ReadUInt32();
+		}
+		this.SendPacketToClient(results);
+	}
+
 	[PacketHandler(Opcode.MSG_TABARDVENDOR_ACTIVATE)]
 	private void HandleTabardVendorActivate(WorldPacket packet)
 	{
@@ -7151,7 +7167,7 @@ public class WorldClient
 	}
 
 	[PacketHandler(Opcode.SMSG_QUERY_GAME_OBJECT_RESPONSE)]
-	private void HandleQueryGameObjectResposne(WorldPacket packet)
+	private void HandleQueryGameObjectResponse(WorldPacket packet)
 	{
 		QueryGameObjectResponse response = new QueryGameObjectResponse();
 		KeyValuePair<int, bool> id = packet.ReadEntry();
@@ -7903,6 +7919,7 @@ public class WorldClient
 		{
 			InitializeFactions factions = new InitializeFactions();
 			uint count = packet.ReadUInt32();
+			factions.Count = count;
 			for (uint i = 0u; i < count; i++)
 			{
 				factions.FactionFlags[i] = (ReputationFlags)packet.ReadUInt8();
@@ -9581,9 +9598,16 @@ public class WorldClient
 		this.GetSession().GameState.ObjectCacheModern.Remove(guid);
 		this.GetSession().GameState.ObjectCacheMutex.ReleaseMutex();
 		this.GetSession().GameState.LastAuraCasterOnTarget.Remove(guid);
-		UpdateObject updateObject = new UpdateObject(this.GetSession().GameState);
-		updateObject.DestroyedGuids.Add(guid);
-		this.SendPacketToClient(updateObject);
+		if (ModernVersion.GetCurrentOpcode(Opcode.SMSG_DESTROY_OBJECT) != 0)
+		{
+			this.SendPacketToClient(new DestroyObject(guid));
+		}
+		else
+		{
+			UpdateObject updateObject = new UpdateObject(this.GetSession().GameState);
+			updateObject.DestroyedGuids.Add(guid);
+			this.SendPacketToClient(updateObject);
+		}
 	}
 
 	[PacketHandler(Opcode.SMSG_COMPRESSED_UPDATE_OBJECT)]
@@ -13195,7 +13219,19 @@ public class WorldClient
 					return;
 				}
 			}
-			this.GetSession().RealmSocket.SendPacket(packet);
+			WorldSocket realmSocket = this.GetSession().RealmSocket;
+			if (pendingPackets.Count > 0)
+			{
+				lock (pendingPackets)
+				{
+					ServerPacket oldPacket;
+					while (pendingPackets.TryDequeue(out oldPacket))
+					{
+						realmSocket.SendPacket(oldPacket);
+					}
+				}
+			}
+			realmSocket.SendPacket(packet);
 			return;
 		}
 		if (this.GetSession().InstanceSocket == null && !this.GetSession().GameState.IsConnectedToInstance)
@@ -13205,17 +13241,27 @@ public class WorldClient
 				if (this.GetSession().InstanceSocket == null && !this.GetSession().GameState.IsConnectedToInstance)
 				{
 					pendingPackets.Enqueue(packet);
-					Log.PrintNet(LogType.Warn, LogNetDir.P2C, $"Can't send opcode {packet.GetUniversalOpcode()} ({packet.GetOpcode()}) before entering world! Queue", "SendPacketToClientDirect", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Client\\WorldClient.cs");
+					Log.PrintNet(LogType.Warn, LogNetDir.P2C, $"Can't send opcode {packet.GetUniversalOpcode()} ({packet.GetOpcode()}) before entering world! Queue (Initial Check)", "SendPacketToClientDirect", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Client\\WorldClient.cs");
 					return;
 				}
 			}
 		}
-		while (this.GetSession().InstanceSocket == null)
+		while (this.GetSession().InstanceSocket == null && this.GetSession().GameState.IsConnectedToInstance)
 		{
 			Log.PrintNet(LogType.Network, LogNetDir.P2C, $"Waiting to send {packet.GetUniversalOpcode()} ({packet.GetOpcode()}).", "SendPacketToClientDirect", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Client\\WorldClient.cs");
 			Thread.Sleep(200);
+			if (this.GetSession()?.GameState == null) return;
 		}
-		WorldSocket socket = this.GetSession().InstanceSocket;
+		if (this.GetSession().InstanceSocket == null)
+		{
+			lock (pendingPackets)
+			{
+				pendingPackets.Enqueue(packet);
+				Log.PrintNet(LogType.Warn, LogNetDir.P2C, $"Can't send opcode {packet.GetUniversalOpcode()} ({packet.GetOpcode()}) before entering world! Queue (State: {this.GetSession().GameState.IsConnectedToInstance})", "SendPacketToClientDirect", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Client\\WorldClient.cs");
+				return;
+			}
+		}
+		WorldSocket instanceSocket = this.GetSession().InstanceSocket;
 		if (pendingPackets.Count > 0)
 		{
 			lock (pendingPackets)
@@ -13223,11 +13269,11 @@ public class WorldClient
 				ServerPacket oldPacket;
 				while (pendingPackets.TryDequeue(out oldPacket))
 				{
-					socket.SendPacket(oldPacket);
+					instanceSocket.SendPacket(oldPacket);
 				}
 			}
 		}
-		socket.SendPacket(packet);
+		instanceSocket.SendPacket(packet);
 	}
 
 	public void SendPacketToServer(WorldPacket packet, Opcode delayUntilOpcode = Opcode.MSG_NULL_ACTION)
@@ -13277,6 +13323,34 @@ public class WorldClient
 		}
 	}
 
+	public void FlushPendingPackets()
+	{
+		if (this.GetSession()?.GameState == null)
+		{
+			return;
+		}
+		Queue<ServerPacket> pendingPackets = this.GetSession().GameState.PendingUninstancedPackets;
+		if (pendingPackets.Count == 0)
+		{
+			return;
+		}
+		lock (pendingPackets)
+		{
+			ServerPacket next;
+			while (pendingPackets.TryPeek(out next))
+			{
+				WorldSocket socket = (next.GetConnection() == ConnectionType.Realm) ? this.GetSession().RealmSocket : this.GetSession().InstanceSocket;
+				if (socket != null)
+				{
+					pendingPackets.TryDequeue(out next);
+					socket.SendPacket(next);
+					continue;
+				}
+				break;
+			}
+		}
+	}
+
 	private static readonly HashSet<Opcode> _suppressedLogOpcodes = new HashSet<Opcode>
 	{
 		Opcode.SMSG_ON_MONSTER_MOVE,
@@ -13299,6 +13373,9 @@ public class WorldClient
 		case Opcode.SMSG_AUTH_RESPONSE:
 			this.HandleAuthResponse(packet);
 			break;
+		case Opcode.SMSG_SEND_KNOWN_SPELLS:
+			this.HandleInitialSpells(packet);
+			break;
 		default:
 			if (this._packetHandlers.ContainsKey(universalOpcode))
 			{
@@ -13313,6 +13390,7 @@ public class WorldClient
 			}
 			break;
 		case Opcode.SMSG_ADDON_INFO:
+ 		this.SendPacketToClient(new AddonInfoPacket());
 			break;
 		}
 		this.SendDelayedPacketsToServerOnOpcode(universalOpcode);
@@ -13387,6 +13465,20 @@ public class WorldClient
 		this.InitializeEncryption(this.GetSession().AuthClient.GetSessionKey());
 	}
 
+	private void HandleInitialSpells(WorldPacket packet)
+	{
+		// Legacy SMSG_INITIAL_SPELLS (298): uint8 unknown + uint16 count + count * (uint32 spellid + uint16 unknown)
+		packet.ReadUInt8();
+		ushort count = packet.ReadUInt16();
+		ModernInitialSpells modern = new ModernInitialSpells();
+		for (int i = 0; i < count; i++)
+		{
+			uint spellId = packet.ReadUInt32();
+			packet.ReadUInt16(); // unknown
+			modern.Spells.Add(spellId);
+		}
+		this.SendPacketToClient(modern);
+	}
 	private void HandleAuthResponse(WorldPacket packet)
 	{
 		AuthResult result = (AuthResult)packet.ReadUInt8();

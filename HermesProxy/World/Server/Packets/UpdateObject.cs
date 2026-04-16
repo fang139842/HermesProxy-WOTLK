@@ -120,10 +120,39 @@ public class UpdateObject : ServerPacket
 			});
 		}
 		this.NumObjUpdates = (uint)this.ObjectUpdates.Count;
-		base._worldPacket.WriteUInt32(this.NumObjUpdates);
+		bool useModernDestroyLayout = ModernVersion.ExpansionVersion >= 3;
+		if (useModernDestroyLayout)
+		{
+			base._worldPacket.WriteUInt16((ushort)this.NumObjUpdates);
+		}
+		else
+		{
+			base._worldPacket.WriteUInt32(this.NumObjUpdates);
+		}
 		base._worldPacket.WriteUInt16(this.MapID);
 		WorldPacket buffer = new WorldPacket();
-		if (buffer.WriteBit(!this.OutOfRangeGuids.Empty() || !this.DestroyedGuids.Empty()))
+		if (useModernDestroyLayout)
+		{
+			base._worldPacket.WriteBit(this.OutOfRangeGuids.Count > 0);
+			base._worldPacket.WriteBit(this.DestroyedGuids.Count > 0);
+			if (this.OutOfRangeGuids.Count > 0)
+			{
+				base._worldPacket.WriteUInt32((uint)this.OutOfRangeGuids.Count);
+				foreach (WowGuid128 guid in this.OutOfRangeGuids)
+				{
+					base._worldPacket.WritePackedGuid128(guid);
+				}
+			}
+			if (this.DestroyedGuids.Count > 0)
+			{
+				base._worldPacket.WriteUInt32((uint)this.DestroyedGuids.Count);
+				foreach (WowGuid128 guid2 in this.DestroyedGuids)
+				{
+					base._worldPacket.WritePackedGuid128(guid2);
+				}
+			}
+		}
+		else if (buffer.WriteBit(!this.OutOfRangeGuids.Empty() || !this.DestroyedGuids.Empty()))
 		{
 			buffer.WriteUInt16((ushort)this.DestroyedGuids.Count);
 			buffer.WriteInt32(this.DestroyedGuids.Count + this.OutOfRangeGuids.Count);
@@ -136,8 +165,8 @@ public class UpdateObject : ServerPacket
 				buffer.WritePackedGuid128(outOfRangeGuid);
 			}
 		}
-		WorldPacket data = new WorldPacket();
-		Log.Print(LogType.Debug, $"[UpdateObject] Writing {this.ObjectUpdates.Count} updates, {this.DestroyedGuids.Count} destroyed, {this.OutOfRangeGuids.Count} OOR, map={this.MapID}", "Write", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\Packets\\UpdatePackets.cs");
+		WorldPacket data = (useModernDestroyLayout ? base._worldPacket : new WorldPacket());
+		Log.Print(LogType.Debug, $"[UpdateObject] Writing {this.ObjectUpdates.Count} updates, {this.DestroyedGuids.Count} destroyed, {this.OutOfRangeGuids.Count} OOR, map={this.MapID}", "Write", "HermesProxy/World/Server/Packets/UpdateObject.cs");
 		foreach (ObjectUpdate update2 in this.ObjectUpdates)
 		{
 			update2.InitializePlaceholders();
@@ -177,31 +206,19 @@ public class UpdateObject : ServerPacket
 				throw new ArgumentOutOfRangeException("No object update builder defined for current build.");
 			}
 		}
-		byte[] bytes = data.GetData();
-		Log.Print(LogType.Debug, $"[UpdateObject] Data block size={bytes.Length}, first 64 bytes: {BitConverter.ToString(bytes, 0, Math.Min(64, bytes.Length))}", "Write", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\Packets\\UpdatePackets.cs");
-		if (bytes.Length > 1000)
+		if (useModernDestroyLayout)
 		{
-			try
-			{
-				string dumpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "updateobject_dump.bin");
-				using (FileStream fs = new FileStream(dumpPath, FileMode.Create))
-				{
-					fs.Write(BitConverter.GetBytes(this.NumObjUpdates), 0, 4);
-					fs.Write(BitConverter.GetBytes(this.MapID), 0, 2);
-					byte[] bufferData = buffer.GetData();
-					fs.WriteByte(0);
-					fs.Write(BitConverter.GetBytes(bytes.Length), 0, 4);
-					fs.Write(bytes, 0, bytes.Length);
-				}
-				Log.Print(LogType.Debug, $"[UpdateObject] Dumped {bytes.Length} bytes to {dumpPath}", "Write", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Server\\Packets\\UpdatePackets.cs");
-			}
-			catch
-			{
-			}
+			base._worldPacket.FlushBits();
 		}
-		buffer.WriteInt32(bytes.Length);
-		buffer.WriteBytes(bytes);
-		this.Data = buffer.GetData();
-		base._worldPacket.WriteBytes(this.Data);
+		else
+		{
+			data.FlushBits();
+			byte[] bytes = data.GetData();
+			Log.Print(LogType.Debug, $"[UpdateObject] Data block size={bytes.Length}, first 64 bytes: {BitConverter.ToString(bytes, 0, Math.Min(64, bytes.Length))}", "Write", "HermesProxy/World/Server/Packets/UpdateObject.cs");
+			buffer.WriteInt32(bytes.Length);
+			buffer.WriteBytes(bytes);
+			this.Data = buffer.GetData();
+			base._worldPacket.WriteBytes(this.Data);
+		}
 	}
 }
