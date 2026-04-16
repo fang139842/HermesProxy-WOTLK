@@ -35,8 +35,8 @@ internal class AuctionListItems : ClientPacket
 
 	public override void Read()
 	{
-		this.Offset = base._worldPacket.ReadUInt32();
 		this.Auctioneer = base._worldPacket.ReadPackedGuid128();
+		this.Offset = base._worldPacket.ReadUInt32();
 		this.MinLevel = base._worldPacket.ReadUInt8();
 		this.MaxLevel = base._worldPacket.ReadUInt8();
 		this.Quality = base._worldPacket.ReadInt32();
@@ -47,12 +47,24 @@ internal class AuctionListItems : ClientPacket
 		{
 			this.KnownPets.Add(base._worldPacket.ReadUInt8());
 		}
+
+		// 3.4.3: TaintedBy bit is present when an addon initiates the search.
+		// Detect by peeking the first bit byte's MSB — if set, TaintedBy is present
+		// (search names are always < 128 chars so nameLength MSB would be 0 in old format).
+		byte peekByte = base._worldPacket.PeekByte();
+		bool hasTaintedBy = (peekByte & 0x80) != 0;
+
+		if (hasTaintedBy)
+			base._worldPacket.HasBit(); // consume TaintedBy bit
+
 		uint nameLength = base._worldPacket.ReadBits<uint>(8);
-		this.Name = base._worldPacket.ReadString(nameLength);
 		uint classFiltersCount = base._worldPacket.ReadBits<uint>(3);
 		this.OnlyUsable = base._worldPacket.HasBit();
 		this.ExactMatch = base._worldPacket.HasBit();
 		base._worldPacket.ResetBitPos();
+
+		this.Name = base._worldPacket.ReadString(nameLength);
+
 		for (int j = 0; j < classFiltersCount; j++)
 		{
 			ClassFilter classFilter = new ClassFilter();
@@ -62,13 +74,28 @@ internal class AuctionListItems : ClientPacket
 			{
 				SubClassFilter filter = new SubClassFilter
 				{
-					ItemSubclass = base._worldPacket.ReadInt32(),
-					InvTypeMask = base._worldPacket.ReadUInt32()
+					InvTypeMask = (uint)base._worldPacket.ReadUInt64(), // 3.4.3 uses uint64
+					ItemSubclass = base._worldPacket.ReadInt32()
 				};
 				classFilter.SubClassFilters.Add(filter);
 			}
 			this.ClassFilters.Add(classFilter);
 		}
+
+		// Skip TaintedBy (AddOnInfo) if present
+		if (hasTaintedBy)
+		{
+			base._worldPacket.ResetBitPos();
+			uint taintNameLen = base._worldPacket.ReadBits<uint>(10);
+			uint taintVersionLen = base._worldPacket.ReadBits<uint>(10);
+			base._worldPacket.HasBit(); // Loaded
+			base._worldPacket.HasBit(); // Disabled
+			if (taintNameLen > 0)
+				base._worldPacket.ReadBytes(taintNameLen);
+			if (taintVersionLen > 0)
+				base._worldPacket.ReadBytes(taintVersionLen);
+		}
+
 		uint size = base._worldPacket.ReadUInt32();
 		byte[] data = base._worldPacket.ReadBytes(size);
 		WorldPacket sorts = new WorldPacket(base._worldPacket.GetOpcode(), data);

@@ -6,7 +6,9 @@ internal class AuctionHelloResponse : ServerPacket
 {
 	public WowGuid128 Guid;
 
-	public uint AuctionHouseID;
+	public uint PurchasedItemDeliveryDelay;
+
+	public uint CancelledItemDeliveryDelay;
 
 	public bool OpenForBusiness = true;
 
@@ -18,7 +20,8 @@ internal class AuctionHelloResponse : ServerPacket
 	public override void Write()
 	{
 		base._worldPacket.WritePackedGuid128(this.Guid);
-		base._worldPacket.WriteUInt32(this.AuctionHouseID);
+		base._worldPacket.WriteUInt32(this.PurchasedItemDeliveryDelay);
+		base._worldPacket.WriteUInt32(this.CancelledItemDeliveryDelay);
 		base._worldPacket.WriteBit(this.OpenForBusiness);
 		base._worldPacket.FlushBits();
 	}

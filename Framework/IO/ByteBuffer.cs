@@ -74,6 +74,14 @@ namespace Framework.IO
             return readStream.ReadByte();
         }
 
+        public byte PeekByte()
+        {
+            long pos = readStream.BaseStream.Position;
+            byte val = readStream.ReadByte();
+            readStream.BaseStream.Position = pos;
+            return val;
+        }
+
         public ushort ReadUInt16()
         {
             ResetBitPos();

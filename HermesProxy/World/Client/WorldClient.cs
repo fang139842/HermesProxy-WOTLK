@@ -204,11 +204,16 @@ public class WorldClient
 		AuctionHelloResponse auction = new AuctionHelloResponse();
 		auction.Guid = packet.ReadGuid().To128(this.GetSession().GameState);
 		this.GetSession().GameState.CurrentInteractedWithNPC = auction.Guid;
-		auction.AuctionHouseID = packet.ReadUInt32();
+		packet.ReadUInt32(); // AuctionHouseID - not used by modern client
 		if (LegacyVersion.AddedInVersion(ClientVersionBuild.V3_3_0_10958))
 		{
 			auction.OpenForBusiness = packet.ReadBool();
 		}
+		// Modern client requires NPC interaction open result before the AH frame will work
+		ShowBank npcInteraction = new ShowBank();
+		npcInteraction.Guid = auction.Guid;
+		npcInteraction.InteractionType = 21; // PlayerInteractionType::Auctioneer
+		this.SendPacketToClient(npcInteraction);
 		this.SendPacketToClient(auction);
 		WorldPacket packet2 = new WorldPacket(Opcode.CMSG_AUCTION_LIST_OWNED_ITEMS);
 		packet2.WriteGuid(auction.Guid.To64());
@@ -272,11 +277,12 @@ public class WorldClient
 			AuctionItem item = this.ReadAuctionItem(packet);
 			auction.Items.Add(item);
 		}
-		auction.TotalItemsCount = packet.ReadInt32();
+		int totalCount = packet.ReadInt32();
 		if (LegacyVersion.AddedInVersion(ClientVersionBuild.V2_3_0_7561))
 		{
 			auction.DesiredDelay = packet.ReadUInt32();
 		}
+		auction.HasMoreResults = totalCount > (int)count;
 		this.SendPacketToClient(auction);
 	}
 
@@ -291,11 +297,13 @@ public class WorldClient
 			item.CensorServerSideInfo = true;
 			auction.Items.Add(item);
 		}
-		auction.TotalItemsCount = packet.ReadInt32();
+		int totalCount = packet.ReadInt32();
+		auction.TotalItemsCount = totalCount;
 		if (LegacyVersion.AddedInVersion(ClientVersionBuild.V2_3_0_7561))
 		{
 			auction.DesiredDelay = packet.ReadUInt32();
 		}
+		auction.HasMoreResults = totalCount > (int)count;
 		this.SendPacketToClient(auction);
 	}
 
@@ -13302,7 +13310,14 @@ public class WorldClient
 		default:
 			if (this._packetHandlers.ContainsKey(universalOpcode))
 			{
-				this._packetHandlers[universalOpcode](packet);
+				try
+				{
+					this._packetHandlers[universalOpcode](packet);
+				}
+				catch (System.OutOfMemoryException ex)
+				{
+					Log.Print(LogType.Error, $"OOM handling {universalOpcode}: {ex.Message}");
+				}
 				break;
 			}
 			Log.PrintNet(LogType.Warn, LogNetDir.S2P, $"No handler for opcode {universalOpcode} ({packet.GetOpcode()}) (Got unknown packet from WorldServer)", "HandlePacket", "F:\\Ampps\\HermesProxy-master\\HermesProxy\\World\\Client\\WorldClient.cs");

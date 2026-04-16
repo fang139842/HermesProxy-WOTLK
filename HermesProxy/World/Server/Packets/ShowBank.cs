@@ -12,6 +12,8 @@ public class ShowBank : ServerPacket
 {
 	public WowGuid128 Guid;
 
+	public int InteractionType = 8; // PlayerInteractionType::Banker
+
 	public ShowBank()
 		: base(Opcode.SMSG_SHOW_BANK, ConnectionType.Instance)
 	{
@@ -20,7 +22,7 @@ public class ShowBank : ServerPacket
 	public override void Write()
 	{
 		base._worldPacket.WritePackedGuid128(this.Guid);
-		base._worldPacket.WriteInt32(8); // PlayerInteractionType::Banker
+		base._worldPacket.WriteInt32(this.InteractionType);
 		base._worldPacket.WriteBit(true); // Success
 		base._worldPacket.FlushBits();
 	}
