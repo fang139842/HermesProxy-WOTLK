@@ -1,8 +1,9 @@
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using Framework.IO;
 using HermesProxy.World.Client;
 using HermesProxy.World.Enums;
-using Ionic.Zlib;
 
 namespace HermesProxy.World;
 
@@ -85,22 +86,16 @@ public class WorldPacket : ByteBuffer
 	public WorldPacket Inflate(int inflatedSize)
 	{
 		byte[] arr = base.ReadToEnd();
-		byte[] newarr = new byte[inflatedSize];
-		ZlibCodec stream = new ZlibCodec(CompressionMode.Decompress)
+		using (MemoryStream ms = new MemoryStream(arr))
+		using (DeflateStream zlib = new DeflateStream(ms, CompressionMode.Decompress))
+		using (MemoryStream outMs = new MemoryStream())
 		{
-			InputBuffer = arr,
-			NextIn = 0,
-			AvailableBytesIn = arr.Length,
-			OutputBuffer = newarr,
-			NextOut = 0,
-			AvailableBytesOut = inflatedSize
-		};
-		stream.Inflate(FlushType.None);
-		stream.Inflate(FlushType.Finish);
-		stream.EndInflate();
-		WorldPacket pkt = new WorldPacket(this.GetOpcode(), newarr);
-		pkt.SetReceiveTime(this.GetReceivedTime());
-		return pkt;
+			zlib.CopyTo(outMs);
+			byte[] newarr = outMs.ToArray();
+			WorldPacket pkt = new WorldPacket(this.GetOpcode(), newarr);
+			pkt.SetReceiveTime(this.GetReceivedTime());
+			return pkt;
+		}
 	}
 
 	public void WriteGuid(WowGuid64 guid)

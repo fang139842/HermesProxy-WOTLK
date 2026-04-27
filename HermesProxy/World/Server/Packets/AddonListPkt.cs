@@ -1,7 +1,7 @@
 using Framework;
 using HermesProxy.World;
-using Ionic.Zlib;
 using System.IO;
+using System.IO.Compression;
 
 namespace HermesProxy.World.Server.Packets;
 
@@ -17,7 +17,7 @@ public class AddonListPkt : ClientPacket
             {
                 byte[] compressed = base._worldPacket.ReadBytes(compressedSize);
                 using (var ms = new MemoryStream(compressed))
-                using (var zlib = new ZlibStream(ms, CompressionMode.Decompress))
+                using (var zlib = new DeflateStream(ms, CompressionMode.Decompress))
                 using (var outMs = new MemoryStream())
                 {
                     zlib.CopyTo(outMs);
